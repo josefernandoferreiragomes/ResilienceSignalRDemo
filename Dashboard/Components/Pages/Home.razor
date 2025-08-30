@@ -1,0 +1,85 @@
+﻿@page "/"
+@using Dashboard.Models
+@inject HttpClient Http
+
+<h3>Polly Dashboard</h3>
+
+<section>
+    <h4>Metrics</h4>
+    <p>Total Calls: @metrics?.TotalCalls</p>
+    <p>Retries Fired: @metrics?.RetryCount</p>
+    <p>Circuit State: @metrics?.CircuitState</p>
+    <p>Last Reset: @metrics?.LastReset</p>
+    <button @onclick="RefreshMetrics">Refresh</button>
+</section>
+
+<hr />
+
+<section>
+    <h4>Configuration</h4>
+    <EditForm Model="config" @formname"configurationForm" OnValidSubmit="UpdateConfig">
+        <div>
+            <label>Retry Count:</label>
+            <InputNumber @bind-Value="config.RetryCount" />
+        </div>
+        <div>
+            <label>Backoff (ms, comma-separated):</label>
+            <InputText @bind-Value="backoffInput" />
+        </div>
+        <div>
+            <label>Exceptions Before Breaking:</label>
+            <InputNumber @bind-Value="config.ExceptionsAllowedBeforeBreaking" />
+        </div>
+        <div>
+            <label>Break Duration (s):</label>
+            <InputNumber @bind-Value="config.DurationOfBreakInSeconds" />
+        </div>
+        <button type="submit">Update</button>
+    </EditForm>
+</section>
+
+@code {
+    private MetricsModel? metrics;
+    private ResilienceConfigModel config = new();
+    private string backoffInput = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfig();
+        await RefreshMetrics();
+    }
+
+    private async Task LoadConfig()
+    {
+        config = await Http.GetFromJsonAsync<ResilienceConfigModel>("config")
+                 ?? new ResilienceConfigModel();
+        backoffInput = string.Join(", ", config.RetryBackoffMilliseconds);
+    }
+
+    private async Task RefreshMetrics()
+    {
+        metrics = await Http.GetFromJsonAsync<MetricsModel>("metrics");
+    }
+
+    private async Task UpdateConfig()
+    {
+        var list = backoffInput
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => int.Parse(s.Trim()))
+            .ToList();
+        config.RetryBackoffMilliseconds = list;
+        await Http.PutAsJsonAsync("config", config);
+        // Optionally refresh immediately
+        await RefreshMetrics();
+    }
+}
+
+@* @page "/"
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+ *@
+
