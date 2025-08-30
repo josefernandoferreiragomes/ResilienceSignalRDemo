@@ -10,14 +10,14 @@
     <p>Retries Fired: @metrics?.RetryCount</p>
     <p>Circuit State: @metrics?.CircuitState</p>
     <p>Last Reset: @metrics?.LastReset</p>
-    <button @onclick="RefreshMetrics">Refresh</button>
+    <button type="button" onclick='location.reload();'>Refresh1</button>
 </section>
 
 <hr />
 
 <section>
     <h4>Configuration</h4>
-    <EditForm Model="config" @formname"configurationForm" OnValidSubmit="UpdateConfig">
+    <EditForm Model="config" FormName="configurationForm" OnValidSubmit="UpdateConfig">
         <div>
             <label>Retry Count:</label>
             <InputNumber @bind-Value="config.RetryCount" />
@@ -58,7 +58,15 @@
 
     private async Task RefreshMetrics()
     {
-        metrics = await Http.GetFromJsonAsync<MetricsModel>("metrics");
+        try
+        {
+            metrics = await Http.GetFromJsonAsync<MetricsModel>("metrics");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing metrics: {ex.Message}");
+        }
     }
 
     private async Task UpdateConfig()

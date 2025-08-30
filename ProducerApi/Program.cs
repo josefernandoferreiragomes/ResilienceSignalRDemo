@@ -20,8 +20,9 @@ var rnd = new Random();
 
 app.MapGet("/produce", () =>
 {
+    int errorChance = 80;
     // 80% chance to fail
-    if (rnd.Next(100) < 100)
+    if (rnd.Next(100) < errorChance)
     {
         return Results.Problem(statusCode: 500, detail: "Transient error occurred");
     }
