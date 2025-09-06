@@ -10,7 +10,7 @@
     <button type="submit">Update Error Chance</button>
 </EditForm>
 
-<p>Current Local Input: @errorChance:P0</p>
+<p>Current Local Input: @errorChance</p>
 
 
 <h3>Polly Dashboard</h3>
@@ -63,11 +63,19 @@
         await RefreshMetrics();
 
         hubConnection = new HubConnectionBuilder()
-          .WithUrl("http://localhost:5003/confighub")
+          .WithUrl("https://localhost:5003/confighub")
           .WithAutomaticReconnect()
           .Build();
 
-        await hubConnection.StartAsync();
+        try
+        {
+            await hubConnection.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting to hub: {ex.Message}");
+            // Consider adding user feedback here
+        }
     }
 
     private async Task SendUpdate()
