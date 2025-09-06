@@ -1,6 +1,17 @@
 ﻿@page "/"
 @using Dashboard.Models
+@using Microsoft.AspNetCore.SignalR.Client
 @inject HttpClient Http
+
+<h3>Configure Producer Error Chance</h3>
+
+<EditForm Model="@this" OnValidSubmit="SendUpdate">
+    <InputNumber @bind-Value="errorChance" step="0.01" min="0" max="1" />
+    <button type="submit">Update Error Chance</button>
+</EditForm>
+
+<p>Current Local Input: @errorChance:P0</p>
+
 
 <h3>Polly Dashboard</h3>
 
@@ -39,6 +50,9 @@
 </section>
 
 @code {
+    private HubConnection? hubConnection;
+    private double errorChance = 0.3;
+
     private MetricsModel? metrics;
     private ResilienceConfigModel config = new();
     private string backoffInput = "";
@@ -47,7 +61,23 @@
     {
         await LoadConfig();
         await RefreshMetrics();
+
+        hubConnection = new HubConnectionBuilder()
+          .WithUrl("http://localhost:5003/confighub")
+          .WithAutomaticReconnect()
+          .Build();
+
+        await hubConnection.StartAsync();
     }
+
+    private async Task SendUpdate()
+    {
+        if (hubConnection is not null &&
+            hubConnection.State == HubConnectionState.Connected)
+        {
+            await hubConnection.InvokeAsync("UpdateErrorChance", errorChance);
+        }
+    }   
 
     private async Task LoadConfig()
     {

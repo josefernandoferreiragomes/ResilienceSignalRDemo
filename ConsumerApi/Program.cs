@@ -110,4 +110,4 @@ app.MapPut("/config", (ResilienceConfig newCfg, ResilienceConfigStore store) =>
     return Results.NoContent();
 });
 
-app.Run();
+await app.RunAsync();
