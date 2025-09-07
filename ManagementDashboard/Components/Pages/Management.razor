@@ -24,10 +24,7 @@
 <p>Current Local Input: @errorChanceModel.ErrorChance</p>
 
 @code {
-    private HubConnection? hubConnection = new HubConnectionBuilder()
-            .WithUrl("https://localhost:5003/confighub")
-            .WithAutomaticReconnect()
-            .Build();
+    private HubConnection? hubConnection;
 
     private ErrorChanceModel errorChanceModel = new();
     private int currentCount = 0;
@@ -36,6 +33,40 @@
     {
         currentCount++;
     }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await StartHubConnectionAsync();
+    }
+
+    private async Task StartHubConnectionAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl("https://localhost:5003/confighub")
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Subscribe to broadcasts before connecting
+        hubConnection.On<double>("BroadcastErrorChance", (newChance) =>
+            {
+                errorChanceModel.ErrorChance = newChance;
+                InvokeAsync(StateHasChanged);
+            });
+
+        if (hubConnection is not null &&
+            hubConnection.State == HubConnectionState.Disconnected)
+        {
+            try
+            {
+                await hubConnection.StartAsync();
+                Console.WriteLine("Hub connection started.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error starting hub connection: {ex.Message}");
+            }
+        }
+}
 
     private async Task SendErrorChanceUpdate()
     {
