@@ -1,26 +1,42 @@
 ﻿@page "/"
+@rendermode InteractiveAuto
 @using Dashboard.Models
 @using Microsoft.AspNetCore.SignalR.Client
-@inject HttpClient Http
+@inject IHttpClientFactory ClientFactory
+@implements IAsyncDisposable
 
 <h3>Configure Producer Error Chance</h3>
 
-<EditForm Model="@this" OnValidSubmit="SendUpdate">
-    <InputNumber @bind-Value="errorChance" step="0.01" min="0" max="1" />
-    <button type="submit">Update Error Chance</button>
-</EditForm>
+@*<EditForm Model="errorChanceModel" FormName="producerErrorChance" OnValidSubmit="SendErrorChanceUpdate" 
+         @onsubmit:preventDefault="true">
+    <ValidationSummary />
+    <div>
+        <label>Error Chance:</label>
+        <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
+    </div>
+    <div>
+        <button type="submit">Update Error Chance</button>
+    </div>
+</EditForm>*@
+<div>
+    <label>Error Chance:</label>
+    <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
+</div>
+<div>
+    <button type="button" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
+</div>
 
-<p>Current Local Input: @errorChance</p>
+<p>Current Local Input: @errorChanceModel.ErrorChance</p>
 
 
 <h3>Polly Dashboard</h3>
 
 <section>
     <h4>Metrics</h4>
-    <p>Total Calls: @metrics?.TotalCalls</p>
-    <p>Retries Fired: @metrics?.RetryCount</p>
-    <p>Circuit State: @metrics?.CircuitState</p>
-    <p>Last Reset: @metrics?.LastReset</p>
+    <p>Total Calls: @metricsModel?.TotalCalls</p>
+    <p>Retries Fired: @metricsModel?.RetryCount</p>
+    <p>Circuit State: @metricsModel?.CircuitState</p>
+    <p>Last Reset: @metricsModel?.LastReset</p>
     <button type="button" onclick='location.reload();'>Refresh1</button>
 </section>
 
@@ -28,10 +44,11 @@
 
 <section>
     <h4>Configuration</h4>
-    <EditForm Model="config" FormName="configurationForm" OnValidSubmit="UpdateConfig">
+    <EditForm Model="resilienceConfigModel" FormName="configurationForm" OnValidSubmit="UpdatePollyConfiguration">
+        <ValidationSummary />
         <div>
             <label>Retry Count:</label>
-            <InputNumber @bind-Value="config.RetryCount" />
+            <InputNumber @bind-Value="resilienceConfigModel.RetryCount" />
         </div>
         <div>
             <label>Backoff (ms, comma-separated):</label>
@@ -39,66 +56,114 @@
         </div>
         <div>
             <label>Exceptions Before Breaking:</label>
-            <InputNumber @bind-Value="config.ExceptionsAllowedBeforeBreaking" />
+            <InputNumber @bind-Value="resilienceConfigModel.ExceptionsAllowedBeforeBreaking" />
         </div>
         <div>
             <label>Break Duration (s):</label>
-            <InputNumber @bind-Value="config.DurationOfBreakInSeconds" />
+            <InputNumber @bind-Value="resilienceConfigModel.DurationOfBreakInSeconds" />
         </div>
         <button type="submit">Update</button>
     </EditForm>
 </section>
 
 @code {
-    private HubConnection? hubConnection;
-    private double errorChance = 0.3;
+    private HttpClient ConfigApiClient => ClientFactory.CreateClient("ConfigApi");
+    private HttpClient ConsumerApiClient => ClientFactory.CreateClient("ConsumerApi");
 
-    private MetricsModel? metrics;
-    private ResilienceConfigModel config = new();
+    private HubConnection? hubConnection;
+    private ErrorChanceModel errorChanceModel = new();
+
+    private MetricsModel? metricsModel = new();
+    private ResilienceConfigModel resilienceConfigModel = new();
     private string backoffInput = "";
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadConfig();
+        await LoadPollyConfiguration();
         await RefreshMetrics();
 
         hubConnection = new HubConnectionBuilder()
-          .WithUrl("https://localhost:5003/confighub")
-          .WithAutomaticReconnect()
-          .Build();
+            .WithUrl("https://localhost:5003/confighub")
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Subscribe to broadcasts before connecting
+        hubConnection.On<double>("BroadcastErrorChance", (newChance) =>
+        {
+            errorChanceModel.ErrorChance = newChance;
+            InvokeAsync(StateHasChanged);
+        });
 
         try
         {
             await hubConnection.StartAsync();
+            // Get initial value after connection
+            await GetErrorChance();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error connecting to hub: {ex.Message}");
-            // Consider adding user feedback here
         }
     }
 
-    private async Task SendUpdate()
+    // private async Task OnErrorChanceChanged(ChangeEventArgs e)
+    // {
+    //     if (double.TryParse(e.Value?.ToString(), out var newValue))
+    //     {
+    //         errorChance = newValue;
+    //         await SendErrorChanceUpdate();
+    //     }
+    // }
+
+    private async Task GetErrorChance()
     {
-        if (hubConnection is not null &&
-            hubConnection.State == HubConnectionState.Connected)
+        try
         {
-            await hubConnection.InvokeAsync("UpdateErrorChance", errorChance);
+            if (hubConnection is not null &&
+                hubConnection.State == HubConnectionState.Connected)
+            {
+                // Call the hub method to get current value
+                var currentChance = await hubConnection.InvokeAsync<double>("GetErrorChance");
+                errorChanceModel.ErrorChance = currentChance;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching error chance: {ex.Message}");
+        }
+    }
+    
+    private async Task SendErrorChanceUpdate()
+    {
+        try
+        {
+            Console.WriteLine("Button clicked!");
+            if (hubConnection is not null &&
+                hubConnection.State == HubConnectionState.Connected)
+            {
+                await hubConnection.InvokeAsync("UpdateErrorChance", errorChanceModel.ErrorChance);
+                await InvokeAsync(StateHasChanged);  // Use InvokeAsync for StateHasChanged
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating error chance: {ex.Message}");                        
         }
     }   
 
-    private async Task LoadConfig()
+    private async Task LoadPollyConfiguration()
     {
-        config = await Http.GetFromJsonAsync<ResilienceConfigModel>("config")
+        resilienceConfigModel = await ConsumerApiClient.GetFromJsonAsync<ResilienceConfigModel>("config")
                  ?? new ResilienceConfigModel();
-        backoffInput = string.Join(", ", config.RetryBackoffMilliseconds);
+        backoffInput = string.Join(", ", resilienceConfigModel.RetryBackoffMilliseconds);
     }
 
     private async Task RefreshMetrics()
     {
         try
         {
-            metrics = await Http.GetFromJsonAsync<MetricsModel>("metrics");
+            metricsModel = await ConsumerApiClient.GetFromJsonAsync<MetricsModel>("metrics");
             StateHasChanged();
         }
         catch (Exception ex)
@@ -107,16 +172,24 @@
         }
     }
 
-    private async Task UpdateConfig()
+    private async Task UpdatePollyConfiguration()
     {
         var list = backoffInput
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(s => int.Parse(s.Trim()))
             .ToList();
-        config.RetryBackoffMilliseconds = list;
-        await Http.PutAsJsonAsync("config", config);
+        resilienceConfigModel.RetryBackoffMilliseconds = list;
+        await ConsumerApiClient.PutAsJsonAsync("config", resilienceConfigModel);
         // Optionally refresh immediately
         await RefreshMetrics();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
     }
 }
 

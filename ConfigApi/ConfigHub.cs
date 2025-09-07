@@ -18,4 +18,9 @@ public class ConfigHub : Hub
         // Broadcast to all connected clients (ProducerApi, etc.)
         await Clients.All.SendAsync("BroadcastErrorChance", newChance);
     }
+
+    public double GetErrorChance()
+    {
+        return _store.GetChance();
+    }
 }
