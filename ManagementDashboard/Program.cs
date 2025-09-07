@@ -16,7 +16,6 @@ builder.Services.AddHttpClient("ConfigApi", client =>
     client.BaseAddress = new Uri("https://localhost:5003/");
 });
 
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

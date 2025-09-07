@@ -25,7 +25,7 @@ var app = builder.Build();
 app.MapHub<ConfigHub>("/confighub");
 
 // Optional health check
-app.MapGet("/", () => "ConfigApi is running.");
+app.MapGet("/health", () => "ConfigApi is running.");
 
 await app.RunAsync();
 

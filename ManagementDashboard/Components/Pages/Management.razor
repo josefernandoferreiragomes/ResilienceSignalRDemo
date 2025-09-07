@@ -1,42 +1,98 @@
 ﻿@page "/management"
 @using ManagementDashboard.Models
 @using Microsoft.AspNetCore.SignalR.Client
+@inject IHttpClientFactory ClientFactory
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 
-<PageTitle>Counter</PageTitle>
+<PageTitle>Polly and SignalR Demo</PageTitle>
 
-<h1>Example Counter</h1>
+<section>
+    <h3>SignalR ConfigHub Health</h3>
 
-<p role="status">Current count: @currentCount</p>
+    <p role="status">Hub health: @hubHealth</p>
+    <button class="btn btn-primary" @onclick="CheckHubHealth">Check Hub Health</button>
+</section>
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<hr />
 
-<h3>Configure Producer Error Chance</h3>
+<section>
+    <h3>Test Consumer API</h3>
+    <InputNumber @bind-Value="successiveCalls" />
+    <button class="btn btn-primary" @onclick="TestConsumerApi">Send Test Consume Request</button>
+</section>
 
-<div>
-    <label>Error Chance:</label>
-    <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
-</div>
-<div>
-    <button type="button" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
-</div>
+<section>
+    <h3>Configure Producer Error Chance</h3>
 
-<p>Current Local Input: @errorChanceModel.ErrorChance</p>
+    <div>
+        <label>Error Chance:</label>
+        <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
+    </div>
+    <div>
+        <button type="button" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
+    </div>
+
+    <p>Current Local Input: @errorChanceModel.ErrorChance</p>
+</section>
+
+<hr />
+
+<section>
+    <h3>Polly Dashboard</h3>
+
+    <h4>Metrics</h4>
+    <p>Total Calls: @metricsModel?.TotalCalls</p>
+    <p>Retries Fired: @metricsModel?.RetryCount</p>
+    <p>Circuit State: @metricsModel?.CircuitState</p>
+    <p>Last Reset: @metricsModel?.LastReset</p>
+    <button type="button" onclick='location.reload();'>Refresh</button>
+</section>
+
+<hr />
+
+<section>
+    <h3>Configuration</h3>
+        <div>
+            <label>Retry Count:</label>
+            <InputNumber @bind-Value="resilienceConfigModel.RetryCount" />
+        </div>
+        <div>
+            <label>Backoff (ms, comma-separated):</label>
+            <InputText @bind-Value="backoffInput" />
+        </div>
+        <div>
+            <label>Exceptions Before Breaking:</label>
+            <InputNumber @bind-Value="resilienceConfigModel.ExceptionsAllowedBeforeBreaking" />
+        </div>
+        <div>
+            <label>Break Duration (s):</label>
+            <InputNumber @bind-Value="resilienceConfigModel.DurationOfBreakInSeconds" />
+        </div>
+    <button type="submit" @onclick="UpdatePollyConfiguration">Update Configuration</button>
+</section>
 
 @code {
     private HubConnection? hubConnection;
 
-    private ErrorChanceModel errorChanceModel = new();
-    private int currentCount = 0;
+    private HttpClient ConsumerApiClient => ClientFactory.CreateClient("ConsumerApi");
+    private HttpClient ConfigApiClient => ClientFactory.CreateClient("ConfigApi");
 
-    private void IncrementCount()
-    {
-        currentCount++;
-    }
+
+    private ErrorChanceModel errorChanceModel = new();
+    private MetricsModel? metricsModel = new();
+    private ResilienceConfigModel resilienceConfigModel = new();
+
+    private int successiveCalls = 1;
+
+    private string backoffInput = "";
+
+    private string hubHealth = "";
 
     protected override async Task OnInitializedAsync()
     {
         await StartHubConnectionAsync();
+        await LoadPollyConfiguration();
     }
 
     private async Task StartHubConnectionAsync()
@@ -66,8 +122,12 @@
                 Console.WriteLine($"Error starting hub connection: {ex.Message}");
             }
         }
-}
+    }
 
+    private async Task CheckHubHealth()
+    {
+        hubHealth = await ConfigApiClient.GetStringAsync("health") ?? "Unknown";
+    }
     private async Task SendErrorChanceUpdate()
     {
         try
@@ -83,6 +143,70 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error updating error chance: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPollyConfiguration()
+    {
+        resilienceConfigModel = await ConsumerApiClient.GetFromJsonAsync<ResilienceConfigModel>("config")
+                 ?? new ResilienceConfigModel();
+        backoffInput = string.Join(", ", resilienceConfigModel.RetryBackoffMilliseconds);
+    }
+
+    private async Task RefreshMetrics()
+    {
+        try
+        {
+            metricsModel = await ConsumerApiClient.GetFromJsonAsync<MetricsModel>("metrics");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing metrics: {ex.Message}");
+        }
+    }
+
+    private async Task UpdatePollyConfiguration()
+    {
+        var list = backoffInput
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => int.Parse(s.Trim()))
+            .ToList();
+        resilienceConfigModel.RetryBackoffMilliseconds = list;
+        await ConsumerApiClient.PutAsJsonAsync("config", resilienceConfigModel);
+        // Optionally refresh immediately
+        await RefreshMetrics();
+    }
+
+    private async Task TestConsumerApi()
+    {
+        await Parallel.ForAsync(0, successiveCalls, async (i, ct) =>
+        {
+            try
+            {
+                var response = await ConsumerApiClient.GetAsync("consume");
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("Test Consume call succeeded.");
+                }
+                else
+                {
+                    Console.WriteLine($"Test Consume call failed with status code: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during test Consume call: {ex.Message}");
+            }
+        });
+        
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
         }
     }
 }
