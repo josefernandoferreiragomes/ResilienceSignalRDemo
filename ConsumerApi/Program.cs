@@ -96,7 +96,10 @@ app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) 
     return Results.Ok(content);
 });
 
-app.MapGet("/metrics", (MetricsStore metrics) => Results.Ok(metrics));
+app.MapGet("/metrics", (MetricsStore metrics) =>
+{
+    return Results.Ok(metrics);
+});
 
 app.MapGet("/config", (ResilienceConfigStore store) =>
 {

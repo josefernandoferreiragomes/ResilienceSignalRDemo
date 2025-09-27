@@ -8,7 +8,7 @@
 <PageTitle>Polly and SignalR Demo</PageTitle>
 
 <section>
-    <h3>SignalR ConfigHub Health</h3>
+    <h4>SignalR ConfigHub Health</h4>
 
     <p role="status">Hub health: @hubHealth</p>
     <button class="btn btn-primary" @onclick="CheckHubHealth">Check Hub Health</button>
@@ -17,13 +17,23 @@
 <hr />
 
 <section>
-    <h3>Test Consumer API</h3>
+    <h4>Test Consumer API</h4>
     <InputNumber @bind-Value="successiveCalls" />
     <button class="btn btn-primary" @onclick="TestConsumerApi">Send Test Consume Request</button>
 </section>
+<section>
+    <h5>Multithread versus sequential</h5>
+    <InputRadioGroup @bind-Value="isParallel">
+        <InputRadio Value="true" /> Parallel
+        <InputRadio Value="false" /> Sequential
+    </InputRadioGroup>
+    <p>Current Local Input: @(isParallel ? "Parallel" : "Sequential")</p>
+</section>
+
+<hr />
 
 <section>
-    <h3>Configure Producer Error Chance</h3>
+    <h4>Configure Producer Error Chance</h4>
 
     <div>
         <label>Error Chance:</label>
@@ -39,20 +49,27 @@
 <hr />
 
 <section>
-    <h3>Polly Dashboard</h3>
+    <h4>Polly Dashboard</h4>
 
-    <h4>Metrics</h4>
+    <h5>Metrics</h5>
     <p>Total Calls: @metricsModel?.TotalCalls</p>
     <p>Retries Fired: @metricsModel?.RetryCount</p>
     <p>Circuit State: @metricsModel?.CircuitState</p>
     <p>Last Reset: @metricsModel?.LastReset</p>
-    <button type="button" onclick='location.reload();'>Refresh</button>
+    <div class="row-cols-2">
+        <div class="col-2">
+            <button type="button" @onclick="RefreshMetrics">Refresh Metrics</button>
+        </div>
+        <div class="col-2">
+            <button type="button" onclick='location.reload();'>Reload Page</button>
+        </div>
+    </div>
 </section>
 
 <hr />
 
 <section>
-    <h3>Configuration</h3>
+    <h4>Configuration</h4>
         <div>
             <label>Retry Count:</label>
             <InputNumber @bind-Value="resilienceConfigModel.RetryCount" />
@@ -82,6 +99,8 @@
     private ErrorChanceModel errorChanceModel = new();
     private MetricsModel? metricsModel = new();
     private ResilienceConfigModel resilienceConfigModel = new();
+
+    private bool isParallel = true;
 
     private int successiveCalls = 1;
 
@@ -180,26 +199,55 @@
 
     private async Task TestConsumerApi()
     {
-        await Parallel.ForAsync(0, successiveCalls, async (i, ct) =>
+        if (isParallel)
         {
-            try
+            Console.WriteLine("Running in parallel mode.");
+            await Task.WhenAll(Enumerable.Range(0, successiveCalls).Select(async i =>
             {
-                var response = await ConsumerApiClient.GetAsync("consume");
-                if (response.IsSuccessStatusCode)
+                try
                 {
-                    Console.WriteLine("Test Consume call succeeded.");
+                    var response = await ConsumerApiClient.GetAsync("consume");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("Test Consume call succeeded.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Test Consume call failed with status code: {response.StatusCode}");
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"Test Consume call failed with status code: {response.StatusCode}");
+                    Console.WriteLine($"Error during test Consume call: {ex.Message}");
                 }
-            }
-            catch (Exception ex)
+            }));
+
+        }
+        else
+        {
+            Console.WriteLine("Running in sequential mode.");
+            for (int i = 0; i < successiveCalls; i++)
             {
-                Console.WriteLine($"Error during test Consume call: {ex.Message}");
+                try
+                {
+                    var response = await ConsumerApiClient.GetAsync("consume");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("Test Consume call succeeded.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Test Consume call failed with status code: {response.StatusCode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error during test Consume call: {ex.Message}");
+                }
+
             }
-        });
-        
+        }
+                
     }
 
     public async ValueTask DisposeAsync()
