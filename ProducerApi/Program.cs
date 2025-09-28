@@ -14,7 +14,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<ErrorChanceStore>();
 
 // Register and start SignalR client to ConfigApi
-builder.Services.AddSingleton(sp =>
+builder.Services.AddSingleton<HubConnection>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var store = sp.GetRequiredService<ErrorChanceStore>();
@@ -26,18 +26,30 @@ builder.Services.AddSingleton(sp =>
         .Build();
 
     // Subscribe to broadcasts
-    connection.On<double>(
-        "BroadcastErrorChance",
-        newChance =>
+    connection.On<double>("BroadcastErrorChance", (newChance) =>
         {
+            Console.WriteLine("---------------------->[ProducerApi] [ConfigApi] Hub connection started.");
             store.SetChance(newChance);
-            Console.WriteLine($"[SignalR] Updated errorChance to {newChance:P0}");
+            Console.WriteLine($"[ProducerApi] [ConfigApi] Updated errorChance to {newChance:P0}");
         });
 
     // Start connection
-    _ = connection.StartAsync();
+    //_ = connection.StartAsync();
+    if (connection is not null &&
+            connection.State == HubConnectionState.Disconnected)
+    {
+        try
+        {
+            connection.StartAsync();
+            Console.WriteLine("---------------------->[ProducerApi] [ConfigApi] Hub connection started.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"---------------------->[ProducerApi] [ConfigApi] Error *** starting hub connection: {ex.Message}");
+        }
+    }
 
-    return connection;
+    return connection!;
 });
 
 

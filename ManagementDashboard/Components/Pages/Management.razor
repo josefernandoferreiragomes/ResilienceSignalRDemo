@@ -2,6 +2,7 @@
 @using ManagementDashboard.Models
 @using Microsoft.AspNetCore.SignalR.Client
 @inject IHttpClientFactory ClientFactory
+@inject IConfiguration config
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
@@ -171,7 +172,7 @@
     private async Task StartHubConnectionAsync()
     {
         hubConnection = new HubConnectionBuilder()
-            .WithUrl("https://localhost:5003/confighub")
+            .WithUrl(config["ConfigApi:HubUrl"]!)
             .WithAutomaticReconnect()
             .Build();
 
@@ -188,11 +189,11 @@
             try
             {
                 await hubConnection.StartAsync();
-                Console.WriteLine("Hub connection started.");
+                Console.WriteLine("---------------------->[ManagementDashboard] [ConfigApi] Hub connection started.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error starting hub connection: {ex.Message}");
+                Console.WriteLine($"---------------------->[ManagementDashboard] [ConfigApi] Error *** starting hub connection: {ex.Message}");
             }
         }
     }
