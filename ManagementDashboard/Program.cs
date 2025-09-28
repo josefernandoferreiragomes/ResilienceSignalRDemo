@@ -33,14 +33,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
-//app.Use(async (context, next) =>
-//{
-//    context.Response.Headers.Append("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-//    context.Response.Headers.Append("Pragma", "no-cache");
-//    context.Response.Headers.Append("Expires", "0");
-//    await next();
-//});
-
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

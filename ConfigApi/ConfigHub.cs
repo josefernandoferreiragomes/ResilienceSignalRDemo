@@ -15,7 +15,7 @@ public class ConfigHub : Hub
     public async Task UpdateErrorChance(double newChance)
     {
         _store.SetChance(newChance);
-        Console.WriteLine($"---------------------->[ConfigApi] [Inside ConfigHub] Error chance updated to {newChance}");
+        Console.WriteLine($"---------------------->[ConfigApi] [Inside ConfigHub] Error chance updated !!! to {newChance}");
         // Broadcast to all connected clients (ProducerApi, etc.)
         await Clients.All.SendAsync("BroadcastErrorChance", newChance);
     }

@@ -11,18 +11,20 @@
     <h5>SignalR ConfigHub</h5>
     <div class="row">
         <div class="col-6">
-            <p role="status">Config Hub health: @hubHealth</p>
+            <label>Config Hub health:</label>
+            <span class="text-primary">@hubHealth</span>
         </div>
         <div class="col-6">
-            <button class="btn btn-primary" @onclick="CheckHubHealth">Check Hub Health</button>
+            <button class="btn btn-primary m-1" @onclick="CheckHubHealth">Check Hub Health</button>
         </div>
     </div>
     <div class="row">
         <div class="col-6">
-            <p role="status">Config Hub Error Chance: @errorChance</p>
+            <label>Config Hub Error Chance:</label>
+            <span class="text-primary">@errorChance</span>
         </div>
         <div class="col-6">
-            <button class="btn btn-primary" @onclick="CheckHubErrorChance">Get Error Chance</button>
+            <button class="btn btn-primary m-1" @onclick="CheckHubErrorChance">Get Error Chance</button>
         </div>
     </div>
 </section>
@@ -34,57 +36,41 @@
             <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
         </div>
         <div class="col-6">
-            <button btn class="btn btn-primary" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
+            <button btn class="btn btn-primary m-1" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
         </div>
     </div>
 </section>
-
 <hr />
-
 <section>
-    <h5>Test Consumer API</h5>
+    <h5>Polly Dashboard</h5>
+    <h6>Metrics</h6>
     <div class="row">
-        <div class="col-2">
-            <label>Successive Calls</label>
-        </div>
-        <div class="col-2">
-            <InputNumber @bind-Value="successiveCalls" />
-        </div>
-        <div class="col-2">
-            <InputRadioGroup @bind-Value="isParallel">
-                <InputRadio Value="true" /> Parallel
-                <InputRadio Value="false" /> Sequential
-            </InputRadioGroup>
+        <div class="col-6">
+            <label>Total Calls:</label>
+            <span class="text-primary">@metricsModel?.TotalCalls</span>
         </div>
         <div class="col-6">
-            <button class="btn btn-primary" @onclick="TestConsumerApi">Send Test Consume Request</button>
+            <label>Retries Fired:</label>
+            <span class="text-primary">@metricsModel?.RetryCount</span>
         </div>
     </div>
-</section>
-
-<hr />
-
-<section>
-    <h5>Polly Dashboard: Metrics</h5>
     <div class="row">
-        <div class="col-6">Total Calls: @metricsModel?.TotalCalls</div>
-        <div class="col-6">Retries Fired: @metricsModel?.RetryCount</div>
+        <div class="col-6">
+            <label>Circuit State:</label>
+            <span class="text-primary">@metricsModel?.CircuitState</span>
+        </div>
+        <div class="col-6">
+            <label>Last Reset:</label>
+            <span class="text-primary">@metricsModel?.LastReset</span>
+        </div>
     </div>
-    <div class="row">
-        <div class="col-6">Circuit State: @metricsModel?.CircuitState</div>
-        <div class="col-6">Last Reset: @metricsModel?.LastReset</div>
-    </div>
-    <div class="row">
+    <div class="row mt-2">
         <div class="col-12">
             <button class="btn btn-outline-primary" @onclick="RefreshMetrics">Refresh Metrics</button>
         </div>
     </div>
-</section>
-
-<hr />
-
-<section>
-    <h5>Configuration</h5>
+    <hr />
+    <h6>Configuration</h6>
     <div class="row">
         <div class="col-3">
             <label>Retry Count:</label>
@@ -115,7 +101,41 @@
     </div>
     <div class="row">
         <div class="col-12">
-            <button class="btn btn-primary" @onclick="UpdatePollyConfiguration">Update Configuration</button>
+            <button class="btn btn-primary m-1" @onclick="UpdatePollyConfiguration">Update Configuration</button>
+        </div>
+    </div>
+</section>
+<hr />
+<section>
+    <h6>Test Consumer API</h6>
+    <div class="row">
+        <div class="col-3">
+            <label>Successive Calls</label>
+        </div>
+        <div class="col-3">
+            <InputNumber @bind-Value="successiveCalls" />
+        </div>
+        <div class="col-3">
+            <InputRadioGroup @bind-Value="isParallel">
+                <div class="form-check">
+                    <InputRadio class="form-check-input" Value="true" /> 
+                    <label class="form-check-label">Parallel</label>
+                </div>
+                <div class="form-check ms-4">
+                    <InputRadio class="form-check-input" Value="false" /> 
+                    <label class="form-check-label">Sequential</label>
+                </div>
+            </InputRadioGroup>
+        </div>
+        <div class="col-3"></div>
+    </div>
+    <div class="row">
+        <div class="col-4">
+            <button class="btn btn-primary m-1" @onclick="TestConsumerApi">Send Test Consume Request</button>
+        </div>
+        <div class="col-8">
+            <label>Status</label>
+            <span class="text-primary">@requestStatus</span>
         </div>
     </div>
 </section>
@@ -140,6 +160,8 @@
     private string hubHealth = "";
 
     private string errorChance = "";
+
+    private string requestStatus = "Ready to send requests";
 
     protected override async Task OnInitializedAsync()
     {
@@ -236,6 +258,7 @@
 
     private async Task TestConsumerApi()
     {
+        requestStatus = "1: Sending requests...";
         if (isParallel)
         {
             Console.WriteLine("Running in parallel mode.");
@@ -284,7 +307,7 @@
 
             }
         }
-
+        requestStatus = "2: Completed requests.";
     }
 
     public async ValueTask DisposeAsync()

@@ -2,6 +2,7 @@ using ConsumerApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Metrics;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -102,20 +103,20 @@ app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) 
 
 app.MapGet("/metrics", (MetricsStore metrics) =>
 {
-    Console.WriteLine($"---------------------->[ConsumerApi] Metrics requested: {metrics.ToString()}.");
+    Console.WriteLine($"---------------------->[ConsumerApi] Metrics requested: {System.Text.Json.JsonSerializer.Serialize(metrics)}.");
     return Results.Ok(metrics);
 });
 
 app.MapGet("/config", (ResilienceConfigStore store) =>
 {
     var config = store.GetConfig();
-    Console.WriteLine($"---------------------->[ConsumerApi] Config requested: {config.ToString()}.");
+    Console.WriteLine($"---------------------->[ConsumerApi] Config requested: {System.Text.Json.JsonSerializer.Serialize(config)}.");
     return config;
 });
 
 app.MapPut("/config", (ResilienceConfig newCfg, ResilienceConfigStore store) =>
 {
-    Console.WriteLine($"---------------------->[ConsumerApi] Config update received: {newCfg.ToString()}.");
+    Console.WriteLine($"---------------------->[ConsumerApi] Config update received: {System.Text.Json.JsonSerializer.Serialize(newCfg)}.");
     store.UpdateConfig(newCfg);
     return Results.NoContent();
 });
