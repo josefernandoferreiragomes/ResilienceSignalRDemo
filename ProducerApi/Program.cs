@@ -5,6 +5,8 @@ using ProducerApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -57,8 +59,11 @@ app.MapGet("/produce", (ErrorChanceStore store) =>
     var chance = store.GetChance();
 
     if (rnd.NextDouble() < chance)
+    {
+        Console.WriteLine($"---------------------->[Produce] Returning Error !!! (chance {chance:P0})");
         return Results.Problem(statusCode: 500, detail: "Transient error occurred");
-
+    }
+    Console.WriteLine($"---------------------->[Produce] Returning Success (chance {chance:P0})");
     return Results.Ok($"Produced at {DateTime.UtcNow}");
 
 });

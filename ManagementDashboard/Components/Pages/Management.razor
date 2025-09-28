@@ -8,60 +8,33 @@
 <PageTitle>Polly and SignalR Demo</PageTitle>
 
 <section>
-    <h4>SignalR ConfigHub Health</h4>
-
-    <p role="status">Hub health: @hubHealth</p>
-    <button class="btn btn-primary" @onclick="CheckHubHealth">Check Hub Health</button>
-</section>
-
-<hr />
-
-<section>
-    <h4>Test Consumer API</h4>
-    <InputNumber @bind-Value="successiveCalls" />
-    <button class="btn btn-primary" @onclick="TestConsumerApi">Send Test Consume Request</button>
-</section>
-<section>
-    <h5>Multithread versus sequential</h5>
-    <InputRadioGroup @bind-Value="isParallel">
-        <InputRadio Value="true" /> Parallel
-        <InputRadio Value="false" /> Sequential
-    </InputRadioGroup>
-    <p>Current Local Input: @(isParallel ? "Parallel" : "Sequential")</p>
-</section>
-
-<hr />
-
-<section>
-    <h4>Configure Producer Error Chance</h4>
-
-    <div>
-        <label>Error Chance:</label>
-        <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
-    </div>
-    <div>
-        <button type="button" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
-    </div>
-
-    <p>Current Local Input: @errorChanceModel.ErrorChance</p>
-</section>
-
-<hr />
-
-<section>
-    <h4>Polly Dashboard</h4>
-
-    <h5>Metrics</h5>
-    <p>Total Calls: @metricsModel?.TotalCalls</p>
-    <p>Retries Fired: @metricsModel?.RetryCount</p>
-    <p>Circuit State: @metricsModel?.CircuitState</p>
-    <p>Last Reset: @metricsModel?.LastReset</p>
-    <div class="row-cols-2">
-        <div class="col-2">
-            <button type="button" @onclick="RefreshMetrics">Refresh Metrics</button>
+    <h5>SignalR ConfigHub</h5>
+    <div class="row">
+        <div class="col-6">
+            <p role="status">Config Hub health: @hubHealth</p>
         </div>
-        <div class="col-2">
-            <button type="button" onclick='location.reload();'>Reload Page</button>
+        <div class="col-6">
+            <button class="btn btn-primary" @onclick="CheckHubHealth">Check Hub Health</button>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-6">
+            <p role="status">Config Hub Error Chance: @errorChance</p>
+        </div>
+        <div class="col-6">
+            <button class="btn btn-primary" @onclick="CheckHubErrorChance">Get Error Chance</button>
+        </div>
+    </div>
+</section>
+<section>
+    <h6>Configure Producer Error Chance</h6>
+    <div class="row">
+        <div class="col-6">
+            <label>Error Chance:</label>
+            <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
+        </div>
+        <div class="col-6">
+            <button btn class="btn btn-primary" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
         </div>
     </div>
 </section>
@@ -69,24 +42,82 @@
 <hr />
 
 <section>
-    <h4>Configuration</h4>
-        <div>
+    <h5>Test Consumer API</h5>
+    <div class="row">
+        <div class="col-2">
+            <label>Successive Calls</label>
+        </div>
+        <div class="col-2">
+            <InputNumber @bind-Value="successiveCalls" />
+        </div>
+        <div class="col-2">
+            <InputRadioGroup @bind-Value="isParallel">
+                <InputRadio Value="true" /> Parallel
+                <InputRadio Value="false" /> Sequential
+            </InputRadioGroup>
+        </div>
+        <div class="col-6">
+            <button class="btn btn-primary" @onclick="TestConsumerApi">Send Test Consume Request</button>
+        </div>
+    </div>
+</section>
+
+<hr />
+
+<section>
+    <h5>Polly Dashboard: Metrics</h5>
+    <div class="row">
+        <div class="col-6">Total Calls: @metricsModel?.TotalCalls</div>
+        <div class="col-6">Retries Fired: @metricsModel?.RetryCount</div>
+    </div>
+    <div class="row">
+        <div class="col-6">Circuit State: @metricsModel?.CircuitState</div>
+        <div class="col-6">Last Reset: @metricsModel?.LastReset</div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <button class="btn btn-outline-primary" @onclick="RefreshMetrics">Refresh Metrics</button>
+        </div>
+    </div>
+</section>
+
+<hr />
+
+<section>
+    <h5>Configuration</h5>
+    <div class="row">
+        <div class="col-3">
             <label>Retry Count:</label>
+        </div>
+        <div class="col-3">
             <InputNumber @bind-Value="resilienceConfigModel.RetryCount" />
         </div>
-        <div>
-            <label>Backoff (ms, comma-separated):</label>
+        <div class="col-3">
+            <label>Exponential Backoff (ms):</label>
+        </div>
+        <div class="col-3">
             <InputText @bind-Value="backoffInput" />
         </div>
-        <div>
+    </div>
+    <div class="row">
+        <div class="col-3">
             <label>Exceptions Before Breaking:</label>
+        </div>
+        <div class="col-3">
             <InputNumber @bind-Value="resilienceConfigModel.ExceptionsAllowedBeforeBreaking" />
         </div>
-        <div>
+        <div class="col-3">
             <label>Break Duration (s):</label>
+        </div>
+        <div class="col-3">
             <InputNumber @bind-Value="resilienceConfigModel.DurationOfBreakInSeconds" />
         </div>
-    <button type="submit" @onclick="UpdatePollyConfiguration">Update Configuration</button>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <button class="btn btn-primary" @onclick="UpdatePollyConfiguration">Update Configuration</button>
+        </div>
+    </div>
 </section>
 
 @code {
@@ -107,6 +138,8 @@
     private string backoffInput = "";
 
     private string hubHealth = "";
+
+    private string errorChance = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,6 +179,10 @@
     private async Task CheckHubHealth()
     {
         hubHealth = await ConfigApiClient.GetStringAsync("health") ?? "Unknown";
+    }
+    private async Task CheckHubErrorChance()
+    {
+        errorChance = await ConfigApiClient.GetStringAsync("errorchance") ?? "Unknown";
     }
     private async Task SendErrorChanceUpdate()
     {
@@ -247,7 +284,7 @@
 
             }
         }
-                
+
     }
 
     public async ValueTask DisposeAsync()

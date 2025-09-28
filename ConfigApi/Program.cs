@@ -2,30 +2,26 @@ using ConfigApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-//// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-//builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
-
 // Register in-memory store and SignalR
 builder.Services.AddSingleton<ErrorChanceStore>();
 builder.Services.AddSignalR();
 
 var app = builder.Build();
 
-//// Configure the HTTP request pipeline.
-//if (app.Environment.IsDevelopment())
-//{
-//    app.UseSwagger();
-//    app.UseSwaggerUI();
-//}
-
-//app.UseHttpsRedirection();
-
 app.MapHub<ConfigHub>("/confighub");
 
-// Optional health check
-app.MapGet("/health", () => "ConfigApi is running.");
+app.MapGet("/health", () =>
+{
+    Console.WriteLine("---------------------->[ConfigApi] Health check received.");
+    return "ConfigApi is running.";
+});
+
+app.MapGet("/errorchance", (ErrorChanceStore store) =>
+{
+    var config = store.GetChance();
+    Console.WriteLine($"---------------------->[ConfigApi] Error chance requested config: {config.ToString()}.");
+    return config;
+});
 
 await app.RunAsync();
 

@@ -7,6 +7,8 @@ using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Register services
 
 builder.Services.AddEndpointsApiExplorer();
@@ -81,6 +83,7 @@ app.UseHttpsRedirection();
 // Endpoints
 app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) =>
 {
+    Console.WriteLine($"---------------------->[ConsumerApi] /consume called.");
     metrics.RecordCall();
     var client = factory.CreateClient("ProducerClient");
     var response = await client.GetAsync("/produce");
@@ -93,22 +96,26 @@ app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) 
     }
 
     var content = await response.Content.ReadAsStringAsync();
+    Console.WriteLine($"---------------------->[ConsumerApi] Received from Producer: {content}");
     return Results.Ok(content);
 });
 
 app.MapGet("/metrics", (MetricsStore metrics) =>
 {
+    Console.WriteLine($"---------------------->[ConsumerApi] Metrics requested: {metrics.ToString()}.");
     return Results.Ok(metrics);
 });
 
 app.MapGet("/config", (ResilienceConfigStore store) =>
 {
     var config = store.GetConfig();
+    Console.WriteLine($"---------------------->[ConsumerApi] Config requested: {config.ToString()}.");
     return config;
 });
 
 app.MapPut("/config", (ResilienceConfig newCfg, ResilienceConfigStore store) =>
 {
+    Console.WriteLine($"---------------------->[ConsumerApi] Config update received: {newCfg.ToString()}.");
     store.UpdateConfig(newCfg);
     return Results.NoContent();
 });

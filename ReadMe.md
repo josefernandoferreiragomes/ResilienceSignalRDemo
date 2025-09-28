@@ -80,6 +80,18 @@ curl http://localhost:5001/consume
 - Dynamically updating resilience policies at runtime via a dashboard.
 - Blazor Server as a quick UI for operational insights.
 
+## Add aspire support
+- Add aspire project to solution
+- Add aspire support in each project
+- Add aspire nuget packages in each project
+	dotnet add package Aspire.Hosting
+	dotnet add package Aspire.Telemetry
+	dotnet add package Aspire.Metrics
+- Add aspire configuration in each project
+	builder.AddServiceDefaults();
+- Add AspireStarterApp.ServiceDefaults
+	Copy it from official aspire source, or crete a new full asipre solution and copy from it
+
 ## 5. Next Steps & Tips
 
 - Add unit tests to simulate transient failures.  
