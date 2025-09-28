@@ -115,25 +115,24 @@
         <div class="col-3">
             <InputNumber @bind-Value="successiveCalls" />
         </div>
-        <div class="col-3">
+        <div class="col-6">
             <InputRadioGroup @bind-Value="isParallel">
-                <div class="form-check">
+                <div class="form-check form-check-inline">
                     <InputRadio class="form-check-input" Value="true" /> 
                     <label class="form-check-label">Parallel</label>
                 </div>
-                <div class="form-check ms-4">
+                <div class="form-check form-check-inline ms-4">
                     <InputRadio class="form-check-input" Value="false" /> 
                     <label class="form-check-label">Sequential</label>
                 </div>
             </InputRadioGroup>
         </div>
-        <div class="col-3"></div>
     </div>
     <div class="row">
-        <div class="col-4">
+        <div class="col-6">
             <button class="btn btn-primary m-1" @onclick="TestConsumerApi">Send Test Consume Request</button>
         </div>
-        <div class="col-8">
+        <div class="col-6">
             <label>Status</label>
             <span class="text-primary">@requestStatus</span>
         </div>
