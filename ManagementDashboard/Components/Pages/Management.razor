@@ -41,6 +41,18 @@
         </div>
     </div>
 </section>
+<section>
+    <h6>Producer's hub connection</h6>
+    <div class="row">
+        <div class="col-6">
+            <label>Status:</label>
+            <span class="text-primary">@producerHubConnection</span>
+        </div>
+        <div class="col-6">
+            <button class="btn btn-primary m-1" @onclick="StartProducer">Start Producer and verify status</button>
+        </div>
+    </div>
+</section>
 <hr />
 <section>
     <h5>Polly Dashboard</h5>
@@ -145,7 +157,7 @@
 
     private HttpClient ConsumerApiClient => ClientFactory.CreateClient("ConsumerApi");
     private HttpClient ConfigApiClient => ClientFactory.CreateClient("ConfigApi");
-
+    private HttpClient ProducerApiClient => ClientFactory.CreateClient("ProducerApi");
 
     private ErrorChanceModel errorChanceModel = new();
     private MetricsModel? metricsModel = new();
@@ -163,6 +175,28 @@
 
     private string requestStatus = "Ready to send requests";
 
+    private string producerHubConnection = "Not started";
+
+    private async Task StartProducer()
+    {
+        try
+        {
+            //var response = await ProducerApiClient.GetAsync("startproducer");
+            var response = await ProducerApiClient.PutAsJsonAsync("start", "testIinput");
+            if (response.IsSuccessStatusCode)
+            {
+                producerHubConnection = "Started";
+            }
+            else
+            {
+                producerHubConnection = $"Failed to start: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            producerHubConnection = $"Error: {ex.Message}";
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
         await StartHubConnectionAsync();

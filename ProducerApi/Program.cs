@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR.Client;
 using ProducerApi;
 
@@ -14,44 +15,39 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<ErrorChanceStore>();
 
 // Register and start SignalR client to ConfigApi
-builder.Services.AddSingleton<HubConnection>(sp =>
-{
-    var config = sp.GetRequiredService<IConfiguration>();
-    var store = sp.GetRequiredService<ErrorChanceStore>();
-    var hubUrl = config["ConfigApi:HubUrl"]!;
+builder.Services.AddSingleton<CustomHubAdapter>();
+//builder.Services.AddSingleton<HubConnection>(sp =>
+//{
+//    var config = sp.GetRequiredService<IConfiguration>();
+//    var store = sp.GetRequiredService<ErrorChanceStore>();
+//    var hubUrl = config["ConfigApi:HubUrl"]!;
 
-    var connection = new HubConnectionBuilder()
-        .WithUrl(hubUrl)
-        .WithAutomaticReconnect()
-        .Build();
+//    Console.WriteLine($"---------------------->[ProducerApi] [ConfigApi] will try building a connection to {hubUrl}");
+//    var connection = new HubConnectionBuilder()
+//        .WithUrl(hubUrl)
+//        .WithAutomaticReconnect()
+//        .Build();
 
-    // Subscribe to broadcasts
-    connection.On<double>("BroadcastErrorChance", (newChance) =>
-        {
-            Console.WriteLine("---------------------->[ProducerApi] [ConfigApi] Hub connection started.");
-            store.SetChance(newChance);
-            Console.WriteLine($"[ProducerApi] [ConfigApi] Updated errorChance to {newChance:P0}");
-        });
+//    // Subscribe to broadcasts
+//    connection.On<double>("BroadcastErrorChance", (newChance) =>
+//    {
+//        store.SetChance(newChance);
+//        Console.WriteLine($"---------------------->[ProducerApi] [ConfigApi] Updated errorChance to {newChance:P0}");
+//    });
 
-    // Start connection
-    //_ = connection.StartAsync();
-    if (connection is not null &&
-            connection.State == HubConnectionState.Disconnected)
-    {
-        try
-        {
-            connection.StartAsync();
-            Console.WriteLine("---------------------->[ProducerApi] [ConfigApi] Hub connection started.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"---------------------->[ProducerApi] [ConfigApi] Error *** starting hub connection: {ex.Message}");
-        }
-    }
+//    // Start connection synchronously since we're in a constructor
+//    try
+//    {
+//        connection.StartAsync().GetAwaiter().GetResult();
+//        Console.WriteLine("---------------------->[ProducerApi] [ConfigApi] Hub connection started.");
+//    }
+//    catch (Exception ex)
+//    {
+//        Console.WriteLine($"---------------------->[ProducerApi] [ConfigApi] Error *** starting hub connection: {ex.Message}");
+//    }
 
-    return connection!;
-});
-
+//    return connection;
+//});
 
 var app = builder.Build();
 
@@ -63,10 +59,21 @@ if (app.Environment.IsDevelopment())
 }
 app.UseHttpsRedirection();
 
-var rnd = new Random();
-
+app.MapPut("/start", (CustomHubAdapter hubAdapter, [FromBody] string input) =>
+{
+    Console.WriteLine($"---------------------->[ProducerApi] Start instruction received. Input:{input}");
+    var status = hubAdapter.GetConnectionStatus();
+    if (status == "Disconnected" || status == "Not initialized")
+    {
+        Console.WriteLine($"---------------------->[ProducerApi] Starting hub connection to ConfigApi...");
+        hubAdapter.StartHubConnectionAsync().GetAwaiter().GetResult();
+    }
+    status = hubAdapter.GetConnectionStatus();
+    return $"Producer online, with hub connection status: {status}";
+});
 app.MapGet("/produce", (ErrorChanceStore store) =>
 {
+    Console.WriteLine($"---------------------->[ProducerApi] Produce instruction received.");
     var rnd = new Random();
     var chance = store.GetChance();
 

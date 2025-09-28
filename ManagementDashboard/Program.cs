@@ -13,6 +13,11 @@ builder.Services.AddHttpClient("ConsumerApi", client =>
     client.BaseAddress = new Uri(builder.Configuration["ConsumerApi:BaseUrl"]!);
 });
 
+builder.Services.AddHttpClient("ProducerApi", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ProducerApi:BaseUrl"]!);
+});
+
 builder.Services.AddHttpClient("ConfigApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ConfigApi:HubUrl"]!);
