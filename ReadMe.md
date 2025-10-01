@@ -84,5 +84,7 @@ curl http://localhost:5001/consume
 
 - Add unit tests to simulate transient failures.  
 - Dockerize each service and orchestrate with `docker-compose`.  
-- Extend with additional policies: timeout, bulkhead isolation.  
+- Extend with additional policies: timeout, bulkhead isolation.
+- Add prometheus
+https://devblogs.microsoft.com/dotnet/introducing-aspnetcore-metrics-and-grafana-dashboards-in-dotnet-8/
 - Secure Dashboard and APIs with JWT or OAuth2. 
