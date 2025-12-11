@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR.Client;
 using ProducerApi;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,13 @@ builder.Services.AddSingleton<CustomHubAdapter>();
 //});
 
 var app = builder.Build();
+
+// Prometheus metrics
+var producerCalls = Metrics.CreateCounter("pollydemo_producer_total_calls", "Total producer calls");
+var producerFailures = Metrics.CreateCounter("pollydemo_producer_failures_total", "Producer failure count");
+
+app.UseMetricServer("/prometheus");
+app.UseHttpMetrics();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
