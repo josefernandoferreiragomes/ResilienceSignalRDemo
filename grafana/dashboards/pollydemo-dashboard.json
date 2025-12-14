@@ -58,13 +58,38 @@
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "unit": "ops/s" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": { "unit": "ops/s" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "id": 5,
       "targets": [
-        { "expr": "rate(pollydemo_producer_failures_total[1m])", "legendFormat": "producer failures/sec", "refId": "A" }
+        {
+          "expr": "rate(pollydemo_producer_failures_total[1m])",
+          "legendFormat": "producer failures/sec",
+          "refId": "A"
+        }
       ],
       "title": "Producer Failures (rate)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "ops/s" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{app=\"ConsumerApi\"}[5m])",
+          "legendFormat": "{{status_class}}",
+          "refId": "A"
+        }
+      ],
+      "title": "ConsumerApi HTTP Requests by Status Class (rate)",
       "type": "timeseries"
     }
   ],

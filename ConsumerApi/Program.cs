@@ -32,6 +32,13 @@ var requestDuration = Metrics.CreateHistogram("pollydemo_consumer_request_durati
 {
     Buckets = Histogram.ExponentialBuckets(start: 0.01, factor: 2, count: 10)
 });
+var httpRequestsTotal = Metrics.CreateCounter(
+    "http_requests_total",
+    "Total HTTP requests to ConsumerApi",
+    new CounterConfiguration
+    {
+        LabelNames = new[] { "app", "status" }
+    });
 
 builder.Services.AddHttpClient("ProducerClient", client =>
 {
@@ -147,6 +154,9 @@ app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) 
     using (requestDuration.NewTimer())
     {
         var response = await client.GetAsync("/produce");
+
+        var statusCode = ((int)response.StatusCode).ToString();
+        httpRequestsTotal.WithLabels("ConsumerApi", statusCode).Inc();
 
         if (!response.IsSuccessStatusCode)
         {
