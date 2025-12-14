@@ -71,7 +71,7 @@ builder.Services.AddHttpClient("ProducerClient", client =>
     // Circuit breaker strategy
     pipelineBuilder.AddCircuitBreaker(new Polly.CircuitBreaker.CircuitBreakerStrategyOptions<HttpResponseMessage>
     {
-        FailureRatio = 1.0,
+        FailureRatio = 0.5,
         MinimumThroughput = cfg.ExceptionsAllowedBeforeBreaking,
         SamplingDuration = TimeSpan.FromSeconds(cfg.DurationOfBreakInSeconds),
         BreakDuration = TimeSpan.FromSeconds(cfg.DurationOfBreakInSeconds),
