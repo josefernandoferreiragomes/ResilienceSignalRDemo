@@ -2,15 +2,19 @@ using ConsumerApi;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 using Polly;
 using Polly.Extensions.Http;
 using Prometheus;
-using System.Diagnostics;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// optional: raise logging verbosity while troubleshooting
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
 // Register services
 builder.Services.AddEndpointsApiExplorer();
@@ -26,7 +30,7 @@ builder.Services.AddSingleton(new ResilienceConfigStore(initialConfig));
 var totalCalls = Metrics.CreateCounter("pollydemo_consumer_total_calls", "Total number of calls to /consume");
 var producerFailures = Metrics.CreateCounter("pollydemo_producer_failures_total", "Total failed responses from Producer");
 var retriesCounter = Metrics.CreateCounter("pollydemo_retries_total", "Total retries fired by Consumer");
-var circuitStateGauge = Metrics.CreateGauge("pollydemo_circuit_state", "Circuit state gauge: 0=Closed,1=Open");
+var circuitStateGauge = Metrics.CreateGauge("pollydemo_circuit_state", "Circuit state gauge: 0=Closed,0.5=HalfOpen,1=Open");
 var requestDuration = Metrics.CreateHistogram("pollydemo_consumer_request_duration_seconds", "Request duration histogram for /consume", new Prometheus.HistogramConfiguration
 {
     Buckets = Histogram.ExponentialBuckets(start: 0.01, factor: 2, count: 10)
@@ -51,19 +55,32 @@ builder.Services.AddHttpClient("ProducerClient", client =>
             {
                 var metrics = provider.GetRequiredService<MetricsStore>();
                 metrics.SetCircuitState("Open");
-                metrics.SetLastReset(DateTime.UtcNow);
                 circuitStateGauge.Set(1);
-                provider.GetRequiredService<ILogger<Program>>()
-                    .LogWarning("Circuit opened for {Delay}s: {Reason}",
-                        breakDelay.TotalSeconds, outcome.Exception?.Message);
+
+                var logger = provider.GetRequiredService<ILogger<Program>>();
+                // outcome.Exception may be null when the failure is an HTTP response (5xx).
+                var status = outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.GetType().Name ?? "Unknown";
+                var reason = outcome.Exception?.Message ?? outcome.Result?.ReasonPhrase ?? "none";
+                logger.LogWarning("Circuit opened for {Delay}s: Status={Status}, Reason={Reason}",
+                    breakDelay.TotalSeconds, status, reason);
             },
             onReset: () =>
             {
                 var metrics = provider.GetRequiredService<MetricsStore>();
                 metrics.SetCircuitState("Closed");
+                metrics.SetLastReset(DateTime.UtcNow);
                 circuitStateGauge.Set(0);
                 provider.GetRequiredService<ILogger<Program>>()
                     .LogWarning("Circuit closed");
+            },
+            onHalfOpen: () =>
+            {
+                var metrics = provider.GetRequiredService<MetricsStore>();
+                metrics.SetCircuitState("HalfOpen");
+                // use 0.5 to represent half-open in the gauge
+                circuitStateGauge.Set(0.5);
+                provider.GetRequiredService<ILogger<Program>>()
+                    .LogInformation("Circuit is half-open and testing a request.");
             });
 
     var retry = HttpPolicyExtensions
@@ -78,10 +95,10 @@ builder.Services.AddHttpClient("ProducerClient", client =>
                 retriesCounter.Inc();
                 provider.GetRequiredService<ILogger<Program>>()
                     .LogWarning("Retry {RetryNumber} after {Delay}ms: {Reason}",
-                        retryNumber, timespan.TotalMilliseconds, outcome.Exception?.Message);
+                        retryNumber, timespan.TotalMilliseconds, outcome.Exception?.Message ?? outcome.Result?.ReasonPhrase);
             });
 
-    // Combine policies - circuit breaker first, then retry
+    // NOTE: make retry the outer policy and the circuit breaker inner so the breaker counts each attempt.
     return Policy.WrapAsync(retry, circuitBreaker);
 });
 
