@@ -10,6 +10,8 @@ namespace ConsumerApi
         private string _circuitState = "Closed";
         // store ticks in a long so we can use Interlocked on it
         private long _lastResetTicks = -1;
+        // count circuit open events
+        private long _circuitOpenCount;
 
         public long TotalCalls => Interlocked.Read(ref _totalCalls);
         public long RetryCount => Interlocked.Read(ref _retryCount);
@@ -23,8 +25,11 @@ namespace ConsumerApi
             }
         }
 
+        public long CircuitOpenCount => Interlocked.Read(ref _circuitOpenCount);
+
         public void RecordCall() => Interlocked.Increment(ref _totalCalls);
         public void RecordRetry() => Interlocked.Increment(ref _retryCount);
+        public void RecordCircuitOpen() => Interlocked.Increment(ref _circuitOpenCount);
         public void SetCircuitState(string state) => System.Threading.Interlocked.Exchange(ref _circuitState, state);
         public void SetLastReset(DateTime time) => Interlocked.Exchange(ref _lastResetTicks, time.ToUniversalTime().Ticks);
     }
