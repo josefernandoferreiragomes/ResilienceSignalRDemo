@@ -1,24 +1,26 @@
-using Dashboard.Components;
+using ManagementDashboard.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-//builder.Services.AddScoped(sp =>
-//    new HttpClient
-//    {
-//        BaseAddress = new Uri(builder.Configuration["ConsumerApi:BaseUrl"]!)
-//    });
 builder.Services.AddHttpClient("ConsumerApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ConsumerApi:BaseUrl"]!);
 });
 
+builder.Services.AddHttpClient("ProducerApi", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ProducerApi:BaseUrl"]!);
+});
+
 builder.Services.AddHttpClient("ConfigApi", client =>
 {
-    client.BaseAddress = new Uri("https://localhost:5003/");
+    client.BaseAddress = new Uri(builder.Configuration["ConfigApi:HubUrl"]!);
 });
 
 var app = builder.Build();
@@ -36,15 +38,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Append("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-    context.Response.Headers.Append("Pragma", "no-cache");
-    context.Response.Headers.Append("Expires", "0");
-    await next();
-});
-
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-await app.RunAsync();
+app.Run();

@@ -1,18 +1,31 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36408.4
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11304.174 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsumerApi", "ConsumerApi\ConsumerApi.csproj", "{576B4039-EF66-414B-B9D0-69198C318457}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProducerApi", "ProducerApi\ProducerApi.csproj", "{0B6D72F9-6DD8-4A00-A58C-2DDA61639B9C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dashboard", "Dashboard\Dashboard.csproj", "{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigApi", "ConfigApi\ConfigApi.csproj", "{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagementDashboard", "ManagementDashboard\ManagementDashboard.csproj", "{9BEF3A01-37FA-471D-8DA7-DB9D96965D3C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolyDemoAppHost", "PolyDemoAppHost\PolyDemoAppHost.csproj", "{95A37328-E20C-4AC3-B45F-E29B59D3FA8F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspireStarterApp.ServiceDefaults", "AspireStarterApp.ServiceDefaults\AspireStarterApp.ServiceDefaults.csproj", "{D3B25C69-70FC-1CFE-5B1D-E73C4D31D628}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{051DCB55-E865-4D9C-BA48-90510ABD48F5}"
 	ProjectSection(SolutionItems) = preProject
+		grafana\provisioning\dashboards\dashboards.yml = grafana\provisioning\dashboards\dashboards.yml
+		docker-compose.yml = docker-compose.yml
+		grafana\dashboards\pollydemo-dashboard.json = grafana\dashboards\pollydemo-dashboard.json
+		prometheus.yml = prometheus.yml
+		grafana\provisioning\datasources\prometheus.yml = grafana\provisioning\datasources\prometheus.yml
 		ReadMe.md = ReadMe.md
 	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dashboard", "Dashboard\Dashboard.csproj", "{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,6 +45,22 @@ Global
 		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9BEF3A01-37FA-471D-8DA7-DB9D96965D3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9BEF3A01-37FA-471D-8DA7-DB9D96965D3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9BEF3A01-37FA-471D-8DA7-DB9D96965D3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9BEF3A01-37FA-471D-8DA7-DB9D96965D3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95A37328-E20C-4AC3-B45F-E29B59D3FA8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95A37328-E20C-4AC3-B45F-E29B59D3FA8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95A37328-E20C-4AC3-B45F-E29B59D3FA8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95A37328-E20C-4AC3-B45F-E29B59D3FA8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3B25C69-70FC-1CFE-5B1D-E73C4D31D628}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3B25C69-70FC-1CFE-5B1D-E73C4D31D628}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3B25C69-70FC-1CFE-5B1D-E73C4D31D628}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3B25C69-70FC-1CFE-5B1D-E73C4D31D628}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

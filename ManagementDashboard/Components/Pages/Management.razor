@@ -1,0 +1,354 @@
+﻿@page "/management"
+@using ManagementDashboard.Models
+@using Microsoft.AspNetCore.SignalR.Client
+@inject IHttpClientFactory ClientFactory
+@inject IConfiguration config
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Polly and SignalR Demo</PageTitle>
+
+<section>
+    <h5>SignalR ConfigHub</h5>
+    <div class="row">
+        <div class="col-6">
+            <label>Config Hub health:</label>
+            <span class="text-primary">@hubHealth</span>
+        </div>
+        <div class="col-6">
+            <button class="btn btn-primary m-1" @onclick="CheckHubHealth">Check Hub Health</button>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-6">
+            <label>Config Hub Error Chance:</label>
+            <span class="text-primary">@errorChance</span>
+        </div>
+        <div class="col-6">
+            <button class="btn btn-primary m-1" @onclick="CheckHubErrorChance">Get Error Chance</button>
+        </div>
+    </div>
+</section>
+<section>
+    <h6>Configure Producer Error Chance</h6>
+    <div class="row">
+        <div class="col-6">
+            <label>Error Chance:</label>
+            <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
+        </div>
+        <div class="col-6">
+            <button btn class="btn btn-primary m-1" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
+        </div>
+    </div>
+</section>
+<section>
+    <h6>Producer's hub connection</h6>
+    <div class="row">
+        <div class="col-6">
+            <label>Status:</label>
+            <span class="text-primary">@producerHubConnection</span>
+        </div>
+        <div class="col-6">
+            <button class="btn btn-primary m-1" @onclick="StartProducer">Start Producer and verify status</button>
+        </div>
+    </div>
+</section>
+<hr />
+<section>
+    <h5>Polly Dashboard</h5>
+    <h6>Metrics</h6>
+    <div class="row">
+        <div class="col-6">
+            <label>Total Calls:</label>
+            <span class="text-primary">@metricsModel?.TotalCalls</span>
+        </div>
+        <div class="col-6">
+            <label>Retries Fired:</label>
+            <span class="text-primary">@metricsModel?.RetryCount</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-6">
+            <label>Circuit State:</label>
+            <span class="text-primary">@metricsModel?.CircuitState</span>
+        </div>
+        <div class="col-6">
+            <label>Last Reset:</label>
+            <span class="text-primary">@metricsModel?.LastReset</span>
+        </div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-12">
+            <button class="btn btn-outline-primary" @onclick="RefreshMetrics">Refresh Metrics</button>
+        </div>
+    </div>
+    <hr />
+    <h6>Configuration</h6>
+    <div class="row">
+        <div class="col-3">
+            <label>Retry Count:</label>
+        </div>
+        <div class="col-3">
+            <InputNumber @bind-Value="resilienceConfigModel.RetryCount" />
+        </div>
+        <div class="col-3">
+            <label>Exponential Backoff (ms):</label>
+        </div>
+        <div class="col-3">
+            <InputText @bind-Value="backoffInput" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-3">
+            <label>Exceptions Before Breaking:</label>
+        </div>
+        <div class="col-3">
+            <InputNumber @bind-Value="resilienceConfigModel.ExceptionsAllowedBeforeBreaking" />
+        </div>
+        <div class="col-3">
+            <label>Break Duration (s):</label>
+        </div>
+        <div class="col-3">
+            <InputNumber @bind-Value="resilienceConfigModel.DurationOfBreakInSeconds" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <button class="btn btn-primary m-1" @onclick="UpdatePollyConfiguration">Update Configuration</button>
+        </div>
+    </div>
+</section>
+<hr />
+<section>
+    <h6>Test Consumer API</h6>
+    <div class="row">
+        <div class="col-3">
+            <label>Successive Calls</label>
+        </div>
+        <div class="col-3">
+            <InputNumber @bind-Value="successiveCalls" />
+        </div>
+        <div class="col-6">
+            <InputRadioGroup @bind-Value="isParallel">
+                <div class="form-check form-check-inline">
+                    <InputRadio class="form-check-input" Value="true" /> 
+                    <label class="form-check-label">Parallel</label>
+                </div>
+                <div class="form-check form-check-inline ms-4">
+                    <InputRadio class="form-check-input" Value="false" /> 
+                    <label class="form-check-label">Sequential</label>
+                </div>
+            </InputRadioGroup>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-6">
+            <button class="btn btn-primary m-1" @onclick="TestConsumerApi">Send Test Consume Request</button>
+        </div>
+        <div class="col-6">
+            <label>Status</label>
+            <span class="text-primary">@requestStatus</span>
+        </div>
+    </div>
+</section>
+
+@code {
+    private HubConnection? hubConnection;
+
+    private HttpClient ConsumerApiClient => ClientFactory.CreateClient("ConsumerApi");
+    private HttpClient ConfigApiClient => ClientFactory.CreateClient("ConfigApi");
+    private HttpClient ProducerApiClient => ClientFactory.CreateClient("ProducerApi");
+
+    private ErrorChanceModel errorChanceModel = new();
+    private MetricsModel? metricsModel = new();
+    private ResilienceConfigModel resilienceConfigModel = new();
+
+    private bool isParallel = true;
+
+    private int successiveCalls = 1;
+
+    private string backoffInput = "";
+
+    private string hubHealth = "";
+
+    private string errorChance = "";
+
+    private string requestStatus = "Ready to send requests";
+
+    private string producerHubConnection = "Not started";
+
+    private async Task StartProducer()
+    {
+        try
+        {
+            //var response = await ProducerApiClient.GetAsync("startproducer");
+            var response = await ProducerApiClient.PutAsJsonAsync("start", "testIinput");
+            if (response.IsSuccessStatusCode)
+            {
+                producerHubConnection = "Started";
+            }
+            else
+            {
+                producerHubConnection = $"Failed to start: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            producerHubConnection = $"Error: {ex.Message}";
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await StartHubConnectionAsync();
+        await LoadPollyConfiguration();
+    }
+
+    private async Task StartHubConnectionAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(config["ConfigApi:HubUrl"]!)
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Subscribe to broadcasts before connecting
+        hubConnection.On<double>("BroadcastErrorChance", (newChance) =>
+            {
+                errorChanceModel.ErrorChance = newChance;
+                InvokeAsync(StateHasChanged);
+            });
+
+        if (hubConnection is not null &&
+            hubConnection.State == HubConnectionState.Disconnected)
+        {
+            try
+            {
+                await hubConnection.StartAsync();
+                Console.WriteLine("---------------------->[ManagementDashboard] [ConfigApi] Hub connection started.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"---------------------->[ManagementDashboard] [ConfigApi] Error *** starting hub connection: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task CheckHubHealth()
+    {
+        hubHealth = await ConfigApiClient.GetStringAsync("health") ?? "Unknown";
+    }
+    private async Task CheckHubErrorChance()
+    {
+        errorChance = await ConfigApiClient.GetStringAsync("errorchance") ?? "Unknown";
+    }
+    private async Task SendErrorChanceUpdate()
+    {
+        try
+        {
+            Console.WriteLine("Button clicked!");
+            if (hubConnection is not null &&
+                hubConnection.State == HubConnectionState.Connected)
+            {
+                await hubConnection.InvokeAsync("UpdateErrorChance", errorChanceModel.ErrorChance);
+                await InvokeAsync(StateHasChanged);  // Use InvokeAsync for StateHasChanged
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating error chance: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPollyConfiguration()
+    {
+        resilienceConfigModel = await ConsumerApiClient.GetFromJsonAsync<ResilienceConfigModel>("config")
+                 ?? new ResilienceConfigModel();
+        backoffInput = string.Join(", ", resilienceConfigModel.RetryBackoffMilliseconds);
+    }
+
+    private async Task RefreshMetrics()
+    {
+        try
+        {
+            metricsModel = await ConsumerApiClient.GetFromJsonAsync<MetricsModel>("metrics");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing metrics: {ex.Message}");
+        }
+    }
+
+    private async Task UpdatePollyConfiguration()
+    {
+        var list = backoffInput
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => int.Parse(s.Trim()))
+            .ToList();
+        resilienceConfigModel.RetryBackoffMilliseconds = list;
+        await ConsumerApiClient.PutAsJsonAsync("config", resilienceConfigModel);
+        // Optionally refresh immediately
+        await RefreshMetrics();
+    }
+
+    private async Task TestConsumerApi()
+    {
+        requestStatus = "1: Sending requests...";
+        if (isParallel)
+        {
+            Console.WriteLine("Running in parallel mode.");
+            await Task.WhenAll(Enumerable.Range(0, successiveCalls).Select(async i =>
+            {
+                try
+                {
+                    var response = await ConsumerApiClient.GetAsync("consume");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("Test Consume call succeeded.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Test Consume call failed with status code: {response.StatusCode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error during test Consume call: {ex.Message}");
+                }
+            }));
+
+        }
+        else
+        {
+            Console.WriteLine("Running in sequential mode.");
+            for (int i = 0; i < successiveCalls; i++)
+            {
+                try
+                {
+                    var response = await ConsumerApiClient.GetAsync("consume");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("Test Consume call succeeded.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Test Consume call failed with status code: {response.StatusCode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error during test Consume call: {ex.Message}");
+                }
+
+            }
+        }
+        requestStatus = "2: Completed requests.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
