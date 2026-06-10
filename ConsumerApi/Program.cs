@@ -32,6 +32,9 @@ var requestDuration = Metrics.CreateHistogram("pollydemo_consumer_request_durati
 {
     Buckets = Histogram.ExponentialBuckets(start: 0.01, factor: 2, count: 10)
 });
+
+// Timeline event store for dashboard timeline
+builder.Services.AddSingleton<TimelineEventStore>();
 var httpRequestsTotal = Metrics.CreateCounter(
     "http_requests_total",
     "Total HTTP requests to ConsumerApi",
@@ -103,6 +106,18 @@ builder.Services.AddHttpClient("ProducerClient", client =>
             var openCount = metrics.CircuitOpenCount;
             logger.LogWarning("Circuit opened for {BreakDuration}s (count={OpenCount}): Status={Status}, Reason={Reason}",
                 args.BreakDuration.TotalSeconds, openCount, status, reason);
+            try
+            {
+                var store = serviceProvider.GetRequiredService<TimelineEventStore>();
+                store.Add(new TimelineEvent
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    Kind = "CircuitState",
+                    State = "Open",
+                    Detail = reason
+                });
+            }
+            catch { }
             return ValueTask.CompletedTask;
         },
         OnClosed = args =>
@@ -113,6 +128,18 @@ builder.Services.AddHttpClient("ProducerClient", client =>
             circuitStateGauge.Set(0);
             serviceProvider.GetRequiredService<ILogger<Program>>()
                 .LogWarning("Circuit closed");
+            try
+            {
+                var store = serviceProvider.GetRequiredService<TimelineEventStore>();
+                store.Add(new TimelineEvent
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    Kind = "CircuitState",
+                    State = "Closed",
+                    Detail = "Circuit closed"
+                });
+            }
+            catch { }
             return ValueTask.CompletedTask;
         },
         OnHalfOpened = args =>
@@ -122,6 +149,18 @@ builder.Services.AddHttpClient("ProducerClient", client =>
             circuitStateGauge.Set(0.5);
             serviceProvider.GetRequiredService<ILogger<Program>>()
                 .LogInformation("Circuit is half-open and testing a request.");
+            try
+            {
+                var store = serviceProvider.GetRequiredService<TimelineEventStore>();
+                store.Add(new TimelineEvent
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    Kind = "CircuitState",
+                    State = "HalfOpen",
+                    Detail = "HalfOpen testing"
+                });
+            }
+            catch { }
             return ValueTask.CompletedTask;
         }
     });
@@ -158,6 +197,27 @@ app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) 
         var statusCode = ((int)response.StatusCode).ToString();
         httpRequestsTotal.WithLabels("ConsumerApi", statusCode).Inc();
 
+        // Record timeline events for consumer request and producer response
+        try
+        {
+            var store = app.Services.GetRequiredService<TimelineEventStore>();
+            store.Add(new TimelineEvent
+            {
+                TimestampUtc = DateTime.UtcNow,
+                Kind = "ConsumerRequest",
+                StatusCode = null,
+                Detail = "Request sent to Producer"
+            });
+            store.Add(new TimelineEvent
+            {
+                TimestampUtc = DateTime.UtcNow,
+                Kind = "ProducerResponse",
+                StatusCode = (int)response.StatusCode,
+                Detail = response.IsSuccessStatusCode ? "Success" : "Failure"
+            });
+        }
+        catch { }
+
         if (!response.IsSuccessStatusCode)
         {
             producerFailures.Inc();
@@ -183,6 +243,16 @@ app.MapGet("/config", (ResilienceConfigStore store) =>
     var config = store.GetConfig();
     Console.WriteLine($"---------------------->[ConsumerApi] Config requested: {System.Text.Json.JsonSerializer.Serialize(config)}.");
     return config;
+});
+
+// Timeline endpoint - returns events from the last N minutes (default 30)
+app.MapGet("/timeline", (TimelineEventStore store, int? minutes) =>
+{
+    var window = TimeSpan.FromMinutes(minutes ?? 30);
+    var from = DateTime.UtcNow - window;
+    var events = store.GetEvents(from);
+    Console.WriteLine($"---------------------->[ConsumerApi] Timeline requested: {events.Count()} events.");
+    return Results.Ok(events);
 });
 
 app.MapPut("/config", (ResilienceConfig newCfg, ResilienceConfigStore store) =>
