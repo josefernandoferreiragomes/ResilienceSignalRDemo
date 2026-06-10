@@ -74,6 +74,17 @@ builder.Services.AddHttpClient("ProducerClient", client =>
             serviceProvider.GetRequiredService<ILogger<Program>>()
                 .LogWarning("Retry {RetryNumber} after {Delay}ms: {Reason}",
                     args.AttemptNumber, args.RetryDelay.TotalMilliseconds, args.Outcome.Exception?.Message ?? (args.Outcome.Result as HttpResponseMessage)?.ReasonPhrase);
+            try
+            {
+                var storeEvents = serviceProvider.GetRequiredService<TimelineEventStore>();
+                storeEvents.Add(new TimelineEvent
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    Kind = "ConsumerRetry",
+                    Detail = $"Retry {args.AttemptNumber}"
+                });
+            }
+            catch { }
             return ValueTask.CompletedTask;
         }
     });
@@ -215,6 +226,19 @@ app.MapGet("/consume", async (IHttpClientFactory factory, MetricsStore metrics) 
                 StatusCode = (int)response.StatusCode,
                 Detail = response.IsSuccessStatusCode ? "Success" : "Failure"
             });
+
+            // Also record a simplified numeric status for producer charting (useful if status codes vary)
+            try
+            {
+                store.Add(new TimelineEvent
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    Kind = "ProducerStatusNumeric",
+                    StatusCode = (int)response.StatusCode,
+                    Detail = response.IsSuccessStatusCode ? "Success" : "Failure"
+                });
+            }
+            catch { }
         }
         catch { }
 
