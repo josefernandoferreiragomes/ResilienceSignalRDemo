@@ -8,6 +8,8 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Leave Blazorise integration out for now; keep UI lightweight
+
 builder.Services.AddHttpClient("ConsumerApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ConsumerApi:BaseUrl"]!);
