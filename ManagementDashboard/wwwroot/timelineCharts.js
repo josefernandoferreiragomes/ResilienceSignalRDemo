@@ -14,17 +14,8 @@ window.timelineCharts = (function () {
             }
             if (window.charts[id]) {
                 try { window.charts[id].destroy(); } catch(e) { /* ignore */ }
-            }
-            // stabilize canvas pixel size to avoid resize feedback loops
-            try {
-                el.style.display = 'block';
-                el.style.width = el.clientWidth + 'px';        // lock CSS width
-                const cssHeight = el.getAttribute('height') ? parseInt(el.getAttribute('height'), 10) : el.clientHeight;
-                el.style.height = cssHeight + 'px';
-                const ratio = window.devicePixelRatio || 1;
-                el.height = Math.floor(cssHeight * ratio);
-                el.width = Math.floor(el.clientWidth * ratio);
-            } catch (err) { /* ignore sizing errors */ }
+            }            
+            el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) {
                 console.warn('Unable to get 2d context for', id);
@@ -46,7 +37,7 @@ window.timelineCharts = (function () {
                     }]
                 },
                 options: {
-                    responsive: false,
+                    responsive: true,
                     maintainAspectRatio: false,
                     scales: {
                         y: {
@@ -89,17 +80,8 @@ window.timelineCharts = (function () {
             }
             if (window.charts[id]) {
                 try { window.charts[id].destroy(); } catch(e) { }
-            }
-            // stabilize canvas pixel size to avoid resize feedback loops
-            try {
-                el.style.display = 'block';
-                el.style.width = el.clientWidth + 'px';        // lock CSS width
-                const cssHeight = el.getAttribute('height') ? parseInt(el.getAttribute('height'), 10) : el.clientHeight;
-                el.style.height = cssHeight + 'px';
-                const ratio = window.devicePixelRatio || 1;
-                el.height = Math.floor(cssHeight * ratio);
-                el.width = Math.floor(el.clientWidth * ratio);
-            } catch (err) { }
+            }     
+            el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) {
                 console.warn('Unable to get 2d context for', id);
@@ -130,7 +112,7 @@ window.timelineCharts = (function () {
                     }]
                 },
                 options: {
-                    responsive: false,
+                    responsive: true,
                     maintainAspectRatio: false,
                     parsing: false,
                     scales: {
@@ -164,17 +146,8 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            if (window.charts[id]) { try { window.charts[id].destroy(); } catch(e) {} }
-            // stabilize canvas pixel size to avoid resize feedback loops
-            try {
-                el.style.display = 'block';
-                el.style.width = el.clientWidth + 'px';        // lock CSS width
-                const cssHeight = el.getAttribute('height') ? parseInt(el.getAttribute('height'), 10) : el.clientHeight;
-                el.style.height = cssHeight + 'px';
-                const ratio = window.devicePixelRatio || 1;
-                el.height = Math.floor(cssHeight * ratio);
-                el.width = Math.floor(el.clientWidth * ratio);
-            } catch (err) { }
+            if (window.charts[id]) { try { window.charts[id].destroy(); } catch (e) { } }
+            el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) { console.warn('Unable to get 2d context for', id); return; }
             window.charts[id] = new Chart(ctx, {
@@ -197,7 +170,7 @@ window.timelineCharts = (function () {
                     ]
                 },
                 options: {
-                    responsive: false,
+                    responsive: true,
                     maintainAspectRatio: false,
                     parsing: false,
                     scales: { x: { type: 'category' }, y: { display: false } },
