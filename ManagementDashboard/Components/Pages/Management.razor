@@ -164,24 +164,24 @@
 <section>
     <h5>Timeline Charts</h5>
     <p class="text-muted">Manual refresh with the "Refresh Timeline" button above. Shows last 30 minutes by default.</p>
-    <div class="row mb-3">
+    <div class="row">
         <div class="col-12">
             <h6>Circuit Breaker State</h6>
-            <div style="position:relative; width:100%; height:75px;">
+            <div style="position:relative; width:100%; height:180px;">
                 <canvas id="circuitChart" aria-label="Circuit breaker timeline"></canvas>
             </div>
         </div>
     </div>
-    <div class="row mb-3">
-        <div class="col-12 mb-3">
+    <div class="row">
+        <div class="col-12">
             <h6>Producer Responses (status codes)</h6>
-            <div style="position:relative; width:100%; height:150px;">
+            <div style="position:relative; width:100%; height:180px;">
                 <canvas id="producerChart" aria-label="Producer responses timeline"></canvas>
             </div>
         </div>
         <div class="col-12">
             <h6>Consumer Attempts & Retries</h6>
-            <div style="position:relative; width:100%; height:150px;">
+            <div style="position:relative; width:100%; height:180px;">
                 <canvas id="consumerChart" aria-label="Consumer attempts timeline"></canvas>
             </div>
         </div>
@@ -282,36 +282,51 @@
             await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", labels, data);
 
             // Map producer events into an array aligned to the unified labels
-            var labelIndex = labels.Select((l, i) => new { l, i }).ToDictionary(x => x.l, x => x.i);
-            var producerAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
-            foreach (var pe in producerEvents)
+            // var labelIndex = labels.Select((l, i) => new { l, i }).ToDictionary(x => x.l, x => x.i);
+            // var producerAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
+            // foreach (var pe in producerEvents)
+            // {
+            //     var key = pe.TimestampUtc.ToString("HH:mm:ss");
+            //     if (labelIndex.TryGetValue(key, out var idx))
+            //     {
+            //         producerAligned[idx] = pe.StatusCode.HasValue ? (double)pe.StatusCode.Value : 0.0;
+            //     }
+            // }
+            // await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", labels, producerAligned, "Producer Status");
+            if (producerEvents is not null && producerEvents.Any())
             {
-                var key = pe.TimestampUtc.ToString("HH:mm:ss");
-                if (labelIndex.TryGetValue(key, out var idx))
-                {
-                    producerAligned[idx] = pe.StatusCode.HasValue ? (double)pe.StatusCode.Value : 0.0;
-                }
+                var pLabels = producerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss")).ToArray();
+                var pData = producerEvents.Select(e => (double)(e.StatusCode ?? 0)).ToArray();
+                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", pLabels, pData, "Producer Status");
             }
-            await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", labels, producerAligned, "Producer Status");
 
             // Map consumer initial attempts and retries to the unified labels
-            var initialAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
-            var retryAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
-            foreach (var ce in consumerEvents)
+            // var initialAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
+            // var retryAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
+            // foreach (var ce in consumerEvents)
+            // {
+            //     var key = ce.TimestampUtc.ToString("HH:mm:ss");
+            //     if (labelIndex.TryGetValue(key, out var idx))
+            //     {
+            //         // mark initial attempt
+            //         initialAligned[idx] = 1.0;
+            //         // simplistic retry detection: if Detail contains 'retry' mark as retry (fallback)
+            //         if (!string.IsNullOrEmpty(ce.Detail) && ce.Detail!.ToLowerInvariant().Contains("retry"))
+            //         {
+            //             retryAligned[idx] = 1.0;
+            //         }
+            //     }
+            // }
+            // await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", labels, initialAligned, retryAligned);
+            if (consumerEvents is not null && consumerEvents.Any())
             {
-                var key = ce.TimestampUtc.ToString("HH:mm:ss");
-                if (labelIndex.TryGetValue(key, out var idx))
-                {
-                    // mark initial attempt
-                    initialAligned[idx] = 1.0;
-                    // simplistic retry detection: if Detail contains 'retry' mark as retry (fallback)
-                    if (!string.IsNullOrEmpty(ce.Detail) && ce.Detail!.ToLowerInvariant().Contains("retry"))
-                    {
-                        retryAligned[idx] = 1.0;
-                    }
-                }
+                var cLabels = consumerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss")).ToArray();
+                var initialData = consumerEvents.Select(e => 1.0).ToArray();
+                var retryData = consumerEvents
+                    .Select(e => (!string.IsNullOrEmpty(e.Detail) && e.Detail.ToLowerInvariant().Contains("retry")) ? 1.0 : 0.0)
+                    .ToArray();
+                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", cLabels, initialData, retryData);
             }
-            await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", labels, initialAligned, retryAligned);
         }
         catch (Exception ex)
         {

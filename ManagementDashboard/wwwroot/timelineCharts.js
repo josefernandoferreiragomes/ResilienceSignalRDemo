@@ -103,10 +103,10 @@ window.timelineCharts = (function () {
                     labels: labels,
                     datasets: [{
                         label: datasetLabel || 'Status',
-                        data: labels.map((l, i) => ({ x: l, y: data[i] })),
+                        data: data,   // plain numeric array
                         pointBackgroundColor: pointBg,
-                        borderColor: 'transparent',
                         backgroundColor: pointBg,
+                        borderColor: 'transparent',
                         showLine: false,
                         pointRadius: 6
                     }]
@@ -114,7 +114,7 @@ window.timelineCharts = (function () {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    parsing: false,
+                    //parsing: false,
                     scales: {
                         x: {
                             type: 'category'
@@ -157,13 +157,13 @@ window.timelineCharts = (function () {
                     datasets: [
                         {
                             label: 'Initial Attempts',
-                            data: labels.map((l,i) => ({ x: l, y: initialData[i] })),
+                            data: initialData,   // plain array
                             pointBackgroundColor: 'seagreen',
                             pointRadius: 6
                         },
                         {
                             label: 'Retries',
-                            data: labels.map((l,i) => ({ x: l, y: retryData[i] })),
+                            data: retryData,   // plain array
                             pointBackgroundColor: 'orange',
                             pointRadius: 6
                         }
@@ -172,7 +172,7 @@ window.timelineCharts = (function () {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    parsing: false,
+                    //parsing: false,
                     scales: { x: { type: 'category' }, y: { display: false } },
                     plugins: { tooltip: { callbacks: { label: function(ctx){ return ctx.dataset.label + ': ' + ctx.raw.x; } } } }
                 }
