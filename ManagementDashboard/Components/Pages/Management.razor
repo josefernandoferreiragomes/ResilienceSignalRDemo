@@ -248,8 +248,14 @@
             timelineFrom = timelineTo.AddMinutes(-30);
 
             consumerEvents = events.Where(e => e.Kind == "ConsumerRequest" && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
-            // Include any event that carries a status code (non-null) so error responses (4xx/5xx) are included
-            producerEvents = events.Where(e => e.StatusCode.HasValue && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
+            // Include producer-related events: any with a StatusCode, plus CircuitState events that report an Internal Server Error in Detail
+            producerEvents = events
+                .Where(e => e.TimestampUtc >= timelineFrom && (
+                    e.StatusCode.HasValue ||
+                    (!string.IsNullOrEmpty(e.Kind) && e.Kind == "CircuitState" && !string.IsNullOrEmpty(e.Detail) && e.Detail.IndexOf("Internal Server Error", StringComparison.OrdinalIgnoreCase) >= 0)
+                ))
+                .OrderBy(e => e.TimestampUtc)
+                .ToList();
             var circuit = events.Where(e => e.Kind == "CircuitState" && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
             // Build stepped points for circuit state so the chart shows a step function across the window
                         var points = new List<(DateTime TimestampUtc, double Value)>();
