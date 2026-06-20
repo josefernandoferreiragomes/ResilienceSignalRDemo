@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using ManagementDashboard.Helpers
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -20,7 +21,9 @@
     <script src="_framework/blazor.web.js" defer></script>
     <script src="lib/chartjs/chart.umd.min.js" defer></script>
     <script>console.log('App scripts loaded - Chart available:', typeof Chart !== 'undefined');</script>
-    <script src="timelineCharts.js" defer></script>
+
+<script src="timelineCharts.js?v=@JsVersionHelper.Version" defer></script>
+
 </body>
 
 </html>

@@ -97,6 +97,14 @@ window.timelineCharts = (function () {
                 return 'steelblue';
             });
 
+            // Debug: print incoming labels/data and color mapping
+            try {
+                console.debug('[timelineCharts] renderStatus labels:', labels);
+                console.debug('[timelineCharts] renderStatus data:', data);
+                console.debug('[timelineCharts] renderStatus pointBg sample:', pointBg.slice(0, 10));
+                console.debug('[timelineCharts] status>=500 count:', data.filter(d => d >= 500).length);
+            } catch (e) { /* ignore */ }
+
             // Convert labels+data into scatter points using numeric x (index) and y=value.
             // Use labels array only for tick/tooltip display to avoid parsing string timestamps.
             const points = labels.map((lbl, i) => ({ x: i, y: data[i] }));
