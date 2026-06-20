@@ -97,13 +97,17 @@ window.timelineCharts = (function () {
                 return 'steelblue';
             });
 
+            // Convert labels+data into scatter points using numeric x (index) and y=value.
+            // Use labels array only for tick/tooltip display to avoid parsing string timestamps.
+            const points = labels.map((lbl, i) => ({ x: i, y: data[i] }));
+
             window.charts[id] = new Chart(ctx, {
                 type: 'scatter',
                 data: {
                     labels: labels,
                     datasets: [{
                         label: datasetLabel || 'Status',
-                        data: data,   // plain numeric array
+                        data: points,
                         pointBackgroundColor: pointBg,
                         backgroundColor: pointBg,
                         borderColor: 'transparent',
@@ -117,7 +121,14 @@ window.timelineCharts = (function () {
                     //parsing: false,
                     scales: {
                         x: {
-                            type: 'category'
+                            type: 'linear',
+                            ticks: {
+                                callback: function (val, index) {
+                                    // val is numeric index; return corresponding label if available
+                                    var idx = Math.round(val);
+                                    return labels[idx] ?? '';
+                                }
+                            }
                         },
                         y: {
                             title: { display: true, text: 'HTTP Status' }
@@ -126,7 +137,7 @@ window.timelineCharts = (function () {
                     plugins: {
                         tooltip: {
                             callbacks: {
-                                label: function (ctx) { return 'Status: ' + ctx.raw.y; }
+                                label: function (ctx) { return 'Status: ' + (ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw)); }
                             }
                         }
                     }

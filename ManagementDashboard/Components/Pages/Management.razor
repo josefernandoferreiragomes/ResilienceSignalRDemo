@@ -234,6 +234,16 @@
                 circuitPoints = new();
                 return;
             }
+            // Debug: log raw timeline event count and a short sample for troubleshooting
+            try
+            {
+                Console.WriteLine($"[Management] Raw timeline events: {events.Count}");
+                foreach (var ev in events.Take(10))
+                {
+                    Console.WriteLine($"[Management] Event: Kind={ev.Kind}, Timestamp={ev.TimestampUtc:O}, StatusCode={(ev.StatusCode.HasValue ? ev.StatusCode.Value.ToString() : "null")}, Detail={ev.Detail}");
+                }
+            }
+            catch { }
             timelineTo = DateTime.UtcNow;
             timelineFrom = timelineTo.AddMinutes(-30);
 
@@ -276,7 +286,8 @@
             StateHasChanged();
 
             // Build a unified labels array from the circuit points timestamps so all charts align horizontally
-            var labels = circuitPoints.Select(p => p.TimestampUtc.ToString("HH:mm:ss")).ToArray();
+            // Use millisecond precision for labels to avoid collapsing events that occur within the same second
+            var labels = circuitPoints.Select(p => p.TimestampUtc.ToString("HH:mm:ss.fff")).ToArray();
             var data = circuitPoints.Select(p => p.Value).ToArray();
             await Task.Yield();
             await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", labels, data);
@@ -293,10 +304,12 @@
             //     }
             // }
             // await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", labels, producerAligned, "Producer Status");
+            // Include producer events that either carry a status code or contain detail (exceptions may come as Detail only)
             if (producerEvents is not null && producerEvents.Any())
             {
-                var pLabels = producerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss")).ToArray();
-                var pData = producerEvents.Select(e => (double)(e.StatusCode ?? 0)).ToArray();
+                var pLabels = producerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss.fff")).ToArray();
+                // Map null status codes (often exceptions) to 500 so they are visible as error points
+                var pData = producerEvents.Select(e => (double)(e.StatusCode ?? 500)).ToArray();
                 await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", pLabels, pData, "Producer Status");
             }
 
@@ -320,13 +333,18 @@
             // await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", labels, initialAligned, retryAligned);
             if (consumerEvents is not null && consumerEvents.Any())
             {
-                var cLabels = consumerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss")).ToArray();
+                var cLabels = consumerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss.fff")).ToArray();
                 var initialData = consumerEvents.Select(e => 1.0).ToArray();
+                // Improve retry detection: check Kind for 'retry' (case-insensitive) in addition to Detail text
                 var retryData = consumerEvents
-                    .Select(e => (!string.IsNullOrEmpty(e.Detail) && e.Detail.ToLowerInvariant().Contains("retry")) ? 1.0 : 0.0)
+                    .Select(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
+                                   || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)) ? 1.0 : 0.0)
                     .ToArray();
                 await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", cLabels, initialData, retryData);
             }
+
+            // Debug: print event counts for quick verification in logs
+            Console.WriteLine($"[Management] Timeline counts: consumer={consumerEvents?.Count ?? 0}, producer={producerEvents?.Count ?? 0}, circuitPoints={circuitPoints?.Count ?? 0}");
         }
         catch (Exception ex)
         {
