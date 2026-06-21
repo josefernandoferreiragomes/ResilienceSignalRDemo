@@ -12,9 +12,10 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            if (window.charts[id]) {
-                try { window.charts[id].destroy(); } catch(e) { /* ignore */ }
-            }            
+            var existing = Chart.getChart(el);
+            if (existing) {
+                existing.destroy();
+            }
             el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) {
@@ -81,9 +82,10 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            if (window.charts[id]) {
-                try { window.charts[id].destroy(); } catch(e) { }
-            }     
+            var existing = Chart.getChart(el);
+            if (existing) {
+                existing.destroy();
+            }
             el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) {
@@ -156,7 +158,10 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            if (window.charts[id]) { try { window.charts[id].destroy(); } catch (e) { } }
+            var existing = Chart.getChart(el);
+            if (existing) {
+                existing.destroy();
+            }
             el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) { console.warn('Unable to get 2d context for', id); return; }
