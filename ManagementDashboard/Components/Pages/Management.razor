@@ -287,70 +287,69 @@
                             points.Add((timelineFrom, currentState));
                             points.Add((timelineTo, currentState));
                         }
-                        circuitPoints = points;
+            circuitPoints = points;
 
             StateHasChanged();
 
-            // Build a unified labels array from the circuit points timestamps so all charts align horizontally
-            // Use millisecond precision for labels to avoid collapsing events that occur within the same second
-            var labels = circuitPoints.Select(p => p.TimestampUtc.ToString("HH:mm:ss.fff")).ToArray();
-            var data = circuitPoints.Select(p => p.Value).ToArray();
+            // Convert circuit points to time-series points (ISO 8601) for JS
+            var circuitPointsJs = circuitPoints.Select(p => new { x = p.TimestampUtc.ToString("o"), y = p.Value }).ToArray();
+
+            // Compute aggregation buckets to avoid excessive points. Target up to maxBuckets buckets over the window.
+            var windowSeconds = Math.Max(1, (int)(timelineTo - timelineFrom).TotalSeconds);
+            const int maxBuckets = 300; // adjustable
+            var bucketSizeSeconds = Math.Max(1, (int)Math.Ceiling(windowSeconds / (double)maxBuckets));
+            var buckets = new List<DateTime>();
+            for (var t = timelineFrom; t <= timelineTo; t = t.AddSeconds(bucketSizeSeconds))
+            {
+                buckets.Add(t);
+            }
+
+            // Aggregate producer events: pick the highest status code in each bucket (map null to 500)
+            var producerPointsJs = new List<object>();
+            if (producerEvents is not null)
+            {
+                foreach (var b in buckets)
+                {
+                    var end = b.AddSeconds(bucketSizeSeconds);
+                    var inBucket = producerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
+                    var aggregated = inBucket.Any() ? inBucket.Max(e => (double)(e.StatusCode ?? 500)) : 0.0;
+                    producerPointsJs.Add(new { x = b.ToString("o"), y = aggregated });
+                }
+            }
+
+            // Aggregate consumer events: count initial attempts and retries per bucket
+            var consumerInitialJs = new List<object>();
+            var consumerRetryJs = new List<object>();
+            if (consumerEvents is not null)
+            {
+                foreach (var b in buckets)
+                {
+                    var end = b.AddSeconds(bucketSizeSeconds);
+                    var inBucket = consumerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
+                    var initialCount = inBucket.Count;
+                    var retryCount = inBucket.Count(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
+                                                         || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)));
+                    consumerInitialJs.Add(new { x = b.ToString("o"), y = (double)initialCount });
+                    consumerRetryJs.Add(new { x = b.ToString("o"), y = (double)retryCount });
+                }
+            }
+
             await Task.Yield();
-            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", labels, data);
+            // Render charts using time-based points so Chart.js can align them exactly
+            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs);
 
-            // Map producer events into an array aligned to the unified labels
-            // var labelIndex = labels.Select((l, i) => new { l, i }).ToDictionary(x => x.l, x => x.i);
-            // var producerAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
-            // foreach (var pe in producerEvents)
-            // {
-            //     var key = pe.TimestampUtc.ToString("HH:mm:ss");
-            //     if (labelIndex.TryGetValue(key, out var idx))
-            //     {
-            //         producerAligned[idx] = pe.StatusCode.HasValue ? (double)pe.StatusCode.Value : 0.0;
-            //     }
-            // }
-            // await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", labels, producerAligned, "Producer Status");
-            // Include producer events that either carry a status code or contain detail (exceptions may come as Detail only)
-            if (producerEvents is not null && producerEvents.Any())
+            if (producerPointsJs.Any())
             {
-                var pLabels = producerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss.fff")).ToArray();
-                // Map null status codes (often exceptions) to 500 so they are visible as error points
-                var pData = producerEvents.Select(e => (double)(e.StatusCode ?? 500)).ToArray();
-                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", pLabels, pData, "Producer Status");
+                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status");
             }
 
-            // Map consumer initial attempts and retries to the unified labels
-            // var initialAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
-            // var retryAligned = Enumerable.Repeat(0.0, labels.Length).ToArray();
-            // foreach (var ce in consumerEvents)
-            // {
-            //     var key = ce.TimestampUtc.ToString("HH:mm:ss");
-            //     if (labelIndex.TryGetValue(key, out var idx))
-            //     {
-            //         // mark initial attempt
-            //         initialAligned[idx] = 1.0;
-            //         // simplistic retry detection: if Detail contains 'retry' mark as retry (fallback)
-            //         if (!string.IsNullOrEmpty(ce.Detail) && ce.Detail!.ToLowerInvariant().Contains("retry"))
-            //         {
-            //             retryAligned[idx] = 1.0;
-            //         }
-            //     }
-            // }
-            // await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", labels, initialAligned, retryAligned);
-            if (consumerEvents is not null && consumerEvents.Any())
+            if (consumerInitialJs.Any())
             {
-                var cLabels = consumerEvents.Select(e => e.TimestampUtc.ToString("HH:mm:ss.fff")).ToArray();
-                var initialData = consumerEvents.Select(e => 1.0).ToArray();
-                // Improve retry detection: check Kind for 'retry' (case-insensitive) in addition to Detail text
-                var retryData = consumerEvents
-                    .Select(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
-                                   || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)) ? 1.0 : 0.0)
-                    .ToArray();
-                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", cLabels, initialData, retryData);
+                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", consumerInitialJs, consumerRetryJs);
             }
 
-            // Debug: print event counts for quick verification in logs
-            Console.WriteLine($"[Management] Timeline counts: consumer={consumerEvents?.Count ?? 0}, producer={producerEvents?.Count ?? 0}, circuitPoints={circuitPoints?.Count ?? 0}");
+            // Debug: print event counts and buckets for quick verification
+            Console.WriteLine($"[Management] Timeline counts: consumer={consumerEvents?.Count ?? 0}, producer={producerEvents?.Count ?? 0}, circuitPoints={circuitPoints?.Count ?? 0}, buckets={buckets.Count}");
         }
         catch (Exception ex)
         {

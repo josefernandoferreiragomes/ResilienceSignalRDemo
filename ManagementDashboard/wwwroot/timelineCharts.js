@@ -24,7 +24,7 @@ window.timelineCharts = (function () {
             window.charts[id] = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    // labels optional when using time scale; data is array of {x: ISODate, y: number}
                     datasets: [{
                         label: 'State',
                         data: data,
@@ -33,29 +33,32 @@ window.timelineCharts = (function () {
                         fill: false,
                         pointRadius: 3,
                         tension: 0.0,
-                        stepped: 'before'
+                        stepped: 'before',
+                        parsing: false
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
+                        x: {
+                            type: 'time',
+                            time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
+                        },
                         y: {
                             ticks: {
                                 callback: function (val) { return yCallback ? yCallback(val) : val; }
                             },
                             min: 0,
                             max: 1
-                        },
-                        x: {
-                            type: 'category'
                         }
                     },
                     plugins: {
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
-                                    return context.parsed.y === 1 ? 'Open' : (context.parsed.y === 0.5 ? 'HalfOpen' : 'Closed');
+                                    var y = context.parsed && context.parsed.y !== undefined ? context.parsed.y : (context.raw && context.raw.y !== undefined ? context.raw.y : context.raw);
+                                    return y === 1 ? 'Open' : (y === 0.5 ? 'HalfOpen' : 'Closed');
                                 }
                             }
                         }
@@ -67,7 +70,7 @@ window.timelineCharts = (function () {
         }
     }
 
-    function renderStatus(id, labels, data, datasetLabel) {
+    function renderStatus(id, points, datasetLabel) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderStatus for', id);
@@ -87,9 +90,9 @@ window.timelineCharts = (function () {
                 console.warn('Unable to get 2d context for', id);
                 return;
             }
-
-            // data: numeric array of status codes; generate per-point colors
-            const pointBg = data.map(s => {
+            // points: array of { x: ISO8601 timestamp, y: numeric status }
+            const values = points.map(p => p && p.y !== undefined ? p.y : 0);
+            const pointBg = values.map(s => {
                 if (s >= 500) return 'red';
                 if (s >= 400) return 'orange';
                 if (s >= 200) return 'seagreen';
@@ -97,46 +100,34 @@ window.timelineCharts = (function () {
                 return 'steelblue';
             });
 
-            // Debug: print incoming labels/data and color mapping
             try {
-                console.log('[timelineCharts] renderStatus labels:', labels);
-                console.log('[timelineCharts] renderStatus data:', data);
-                console.log('[timelineCharts] renderStatus pointBg sample:', pointBg.slice(0, 10));
-                console.log('[timelineCharts] status>=500 count:', data.filter(d => d >= 500).length);
-            } catch (e) { /* ignore */ }
-
-            // Convert labels+data into scatter points using numeric x (index) and y=value.
-            // Use labels array only for tick/tooltip display to avoid parsing string timestamps.
-            const points = labels.map((lbl, i) => ({ x: i, y: data[i] }));
+                console.log('[timelineCharts] renderStatus points sample:', points.slice(0, 8));
+            } catch (e) { }
 
             window.charts[id] = new Chart(ctx, {
-                type: 'scatter',
+                type: 'line',
                 data: {
-                    labels: labels,
                     datasets: [{
                         label: datasetLabel || 'Status',
                         data: points,
                         pointBackgroundColor: pointBg,
-                        backgroundColor: pointBg,
-                        borderColor: 'transparent',
-                        showLine: false,
-                        pointRadius: 6
+                        backgroundColor: 'rgba(70,130,180,0.08)',
+                        borderColor: 'steelblue',
+                        borderWidth: 1,
+                        pointRadius: 4,
+                        showLine: true,
+                        fill: false,
+                        tension: 0.0,
+                        parsing: false
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    //parsing: false,
                     scales: {
                         x: {
-                            type: 'linear',
-                            ticks: {
-                                callback: function (val, index) {
-                                    // val is numeric index; return corresponding label if available
-                                    var idx = Math.round(val);
-                                    return labels[idx] ?? '';
-                                }
-                            }
+                            type: 'time',
+                            time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
                             title: { display: true, text: 'HTTP Status' }
@@ -145,7 +136,7 @@ window.timelineCharts = (function () {
                     plugins: {
                         tooltip: {
                             callbacks: {
-                                label: function (ctx) { return 'Status: ' + (ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw)); }
+                                label: function (ctx) { var v = ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw); return 'Status: ' + v; }
                             }
                         }
                     }
@@ -154,7 +145,7 @@ window.timelineCharts = (function () {
         } catch (e) { console.error(e); }
     }
 
-    function renderAttempts(id, labels, initialData, retryData) {
+    function renderAttempts(id, initialPoints, retryPoints) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderAttempts for', id);
@@ -170,30 +161,34 @@ window.timelineCharts = (function () {
             const ctx = el.getContext && el.getContext('2d');
             if (!ctx) { console.warn('Unable to get 2d context for', id); return; }
             window.charts[id] = new Chart(ctx, {
-                type: 'scatter',
+                type: 'line',
                 data: {
-                    labels: labels,
                     datasets: [
                         {
                             label: 'Initial Attempts',
-                            data: initialData,   // plain array
-                            pointBackgroundColor: 'seagreen',
-                            pointRadius: 6
+                            data: initialPoints,
+                            borderColor: 'seagreen',
+                            backgroundColor: 'rgba(46,139,87,0.08)',
+                            pointRadius: 3,
+                            fill: false,
+                            parsing: false
                         },
                         {
                             label: 'Retries',
-                            data: retryData,   // plain array
-                            pointBackgroundColor: 'orange',
-                            pointRadius: 6
+                            data: retryPoints,
+                            borderColor: 'orange',
+                            backgroundColor: 'rgba(255,165,0,0.08)',
+                            pointRadius: 3,
+                            fill: false,
+                            parsing: false
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    //parsing: false,
-                    scales: { x: { type: 'category' }, y: { display: false } },
-                    plugins: { tooltip: { callbacks: { label: function(ctx){ return ctx.dataset.label + ': ' + ctx.raw.x; } } } }
+                    scales: { x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } } }, y: { title: { display: true, text: 'Attempts' } } },
+                    plugins: { tooltip: { callbacks: { label: function(ctx){ var v = ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw); return ctx.dataset.label + ': ' + v; } } } }
                 }
             });
         } catch(e){ console.error(e); }
