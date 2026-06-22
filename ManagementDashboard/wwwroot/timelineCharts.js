@@ -1,7 +1,7 @@
 window.timelineCharts = (function () {
     window.charts = window.charts || {};
 
-    function renderLine(id, labels, data, yCallback) {
+    function renderLine(id, data, yCallback) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderLine for', id);
@@ -12,9 +12,17 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            var existing = Chart.getChart(el);
+            var existing = window.charts[id] || Chart.getChart(el);
             if (existing) {
-                existing.destroy();
+                if (!document.body.contains(existing.canvas)) {
+                    existing.destroy();
+                    existing = null;
+                } else {
+                    existing.data.datasets[0].data = data;
+                    existing.update();
+                    el.style.display = 'block';
+                    return;
+                }
             }
             el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
@@ -82,9 +90,26 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            var existing = Chart.getChart(el);
+            var existing = window.charts[id] || Chart.getChart(el);
             if (existing) {
-                existing.destroy();
+                if (!document.body.contains(existing.canvas)) {
+                    existing.destroy();
+                    existing = null;
+                } else {
+                    const values = points.map(p => p && p.y !== undefined ? p.y : 0);
+                    const pointBg = values.map(s => {
+                        if (s >= 500) return 'red';
+                        if (s >= 400) return 'orange';
+                        if (s >= 200) return 'seagreen';
+                        if (s === 0) return 'gray';
+                        return 'steelblue';
+                    });
+                    existing.data.datasets[0].data = points;
+                    existing.data.datasets[0].pointBackgroundColor = pointBg;
+                    existing.update();
+                    el.style.display = 'block';
+                    return;
+                }
             }
             el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
@@ -158,9 +183,18 @@ window.timelineCharts = (function () {
                 console.warn('Canvas element not found for id', id);
                 return;
             }
-            var existing = Chart.getChart(el);
+            var existing = window.charts[id] || Chart.getChart(el);
             if (existing) {
-                existing.destroy();
+                if (!document.body.contains(existing.canvas)) {
+                    existing.destroy();
+                    existing = null;
+                } else {
+                    existing.data.datasets[0].data = initialPoints;
+                    existing.data.datasets[1].data = retryPoints;
+                    existing.update();
+                    el.style.display = 'block';
+                    return;
+                }
             }
             el.style.display = 'block';
             const ctx = el.getContext && el.getContext('2d');
