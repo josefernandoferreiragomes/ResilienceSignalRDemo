@@ -55,11 +55,11 @@
         </div>
     </div>
 </section>
-    <div class="row">
-        <div class="col-12 mb-2">
-            <button class="btn btn-primary" style="background:#0d6efd;color:#fff;padding:.375rem .75rem;border-radius:.25rem" @onclick="RefreshTimeline">Refresh Timeline</button>
-        </div>
+<div class="row">
+    <div class="col-12 mb-2">
+        <button class="btn btn-primary" style="background:#0d6efd;color:#fff;padding:.375rem .75rem;border-radius:.25rem" @onclick="RefreshTimeline">Refresh Timeline</button>
     </div>
+</div>
 <hr />
 <section>
     <h5>Polly Dashboard</h5>
@@ -138,11 +138,11 @@
         <div class="col-6">
             <InputRadioGroup @bind-Value="isParallel">
                 <div class="form-check form-check-inline">
-                    <InputRadio class="form-check-input" Value="true" /> 
+                    <InputRadio class="form-check-input" Value="true" />
                     <label class="form-check-label">Parallel</label>
                 </div>
                 <div class="form-check form-check-inline ms-4">
-                    <InputRadio class="form-check-input" Value="false" /> 
+                    <InputRadio class="form-check-input" Value="false" />
                     <label class="form-check-label">Sequential</label>
                 </div>
             </InputRadioGroup>
@@ -258,41 +258,41 @@
                 .ToList();
             var circuit = events.Where(e => e.Kind == "CircuitState" && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
             // Build stepped points for circuit state so the chart shows a step function across the window
-                        var points = new List<(DateTime TimestampUtc, double Value)>();
-                        double currentState = 0.0; // assume Closed
-                        if (circuit.Any())
-                        {
-                            // start with state at window start (use first event's previous state if available)
-                            // we do not know previous state, so use the first event's state as starting value
-                            var first = circuit.First();
-                            currentState = first.State == "Open" ? 1.0 : first.State == "HalfOpen" ? 0.5 : 0.0;
-                            points.Add((timelineFrom, currentState));
-                            foreach (var e in circuit)
-                            {
-                                var newState = e.State == "Open" ? 1.0 : e.State == "HalfOpen" ? 0.5 : 0.0;
-                                // add a point at event time with previous state to end the previous step
-                                points.Add((e.TimestampUtc, currentState));
-                                // add a point at same time with new state to start the new step
-                                points.Add((e.TimestampUtc, newState));
-                                currentState = newState;
-                            }
-                            // close the last step to timeline end
-                            points.Add((timelineTo, currentState));
-                        }
-                        else
-                        {
-                            // no events: show flat line using last known metrics state if available
-                            var s = metricsModel?.CircuitState ?? "Closed";
-                            currentState = s == "Open" ? 1.0 : s == "HalfOpen" ? 0.5 : 0.0;
-                            points.Add((timelineFrom, currentState));
-                            points.Add((timelineTo, currentState));
-                        }
+            var points = new List<(DateTime TimestampUtc, double Value)>();
+            double currentState = 0.0; // assume Closed
+            if (circuit.Any())
+            {
+                // start with state at window start (use first event's previous state if available)
+                // we do not know previous state, so use the first event's state as starting value
+                var first = circuit.First();
+                currentState = first.State == "Open" ? 1.0 : first.State == "HalfOpen" ? 0.5 : 0.0;
+                points.Add((timelineFrom, currentState));
+                foreach (var e in circuit)
+                {
+                    var newState = e.State == "Open" ? 1.0 : e.State == "HalfOpen" ? 0.5 : 0.0;
+                    // add a point at event time with previous state to end the previous step
+                    points.Add((e.TimestampUtc, currentState));
+                    // add a point at same time with new state to start the new step
+                    points.Add((e.TimestampUtc, newState));
+                    currentState = newState;
+                }
+                // close the last step to timeline end
+                points.Add((timelineTo, currentState));
+            }
+            else
+            {
+                // no events: show flat line using last known metrics state if available
+                var s = metricsModel?.CircuitState ?? "Closed";
+                currentState = s == "Open" ? 1.0 : s == "HalfOpen" ? 0.5 : 0.0;
+                points.Add((timelineFrom, currentState));
+                points.Add((timelineTo, currentState));
+            }
             circuitPoints = points;
 
             StateHasChanged();
 
             // Convert circuit points to time-series points (ISO 8601) for JS
-            var circuitPointsJs = circuitPoints.Select(p => new { x = p.TimestampUtc.ToString("o"), y = p.Value }).ToArray();
+            var circuitPointsJs = circuitPoints.Select(p => new { x = p.TimestampUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = p.Value }).ToArray();
 
             // Compute aggregation buckets to avoid excessive points. Target up to maxBuckets buckets over the window.
             var windowSeconds = Math.Max(1, (int)(timelineTo - timelineFrom).TotalSeconds);
@@ -313,7 +313,7 @@
                     var end = b.AddSeconds(bucketSizeSeconds);
                     var inBucket = producerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
                     var aggregated = inBucket.Any() ? inBucket.Max(e => (double)(e.StatusCode ?? 500)) : 0.0;
-                    producerPointsJs.Add(new { x = b.ToString("o"), y = aggregated });
+                    producerPointsJs.Add(new { x = b.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = aggregated });
                 }
             }
 
@@ -329,8 +329,8 @@
                     var initialCount = inBucket.Count;
                     var retryCount = inBucket.Count(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
                                                          || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)));
-                    consumerInitialJs.Add(new { x = b.ToString("o"), y = (double)initialCount });
-                    consumerRetryJs.Add(new { x = b.ToString("o"), y = (double)retryCount });
+                    consumerInitialJs.Add(new { x = b.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = (double)initialCount });
+                    consumerRetryJs.Add(new { x = b.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = (double)retryCount });
                 }
             }
 

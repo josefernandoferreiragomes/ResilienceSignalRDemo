@@ -1,7 +1,7 @@
 window.timelineCharts = (function () {
     window.charts = window.charts || {};
 
-    function renderLine(id, data, yCallback) {
+    function renderLine(id, data, yCallback, minStr, maxStr) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderLine for', id);
@@ -14,23 +14,11 @@ window.timelineCharts = (function () {
             }
             var existing = window.charts[id] || Chart.getChart(el);
             if (existing) {
-                if (!document.body.contains(existing.canvas)) {
-                    existing.destroy();
-                    existing = null;
-                } else {
-                    existing.data.datasets[0].data = data;
-                    existing.update();
-                    el.style.display = 'block';
-                    return;
-                }
+                existing.destroy();
+                delete window.charts[id];
             }
             el.style.display = 'block';
-            const ctx = el.getContext && el.getContext('2d');
-            if (!ctx) {
-                console.warn('Unable to get 2d context for', id);
-                return;
-            }
-            window.charts[id] = new Chart(ctx, {
+            window.charts[id] = new Chart(el, {
                 type: 'line',
                 data: {
                     // labels optional when using time scale; data is array of {x: ISODate, y: number}
@@ -52,6 +40,8 @@ window.timelineCharts = (function () {
                     scales: {
                         x: {
                             type: 'time',
+                            min: minStr,
+                            max: maxStr,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
@@ -79,7 +69,7 @@ window.timelineCharts = (function () {
         }
     }
 
-    function renderStatus(id, points, datasetLabel) {
+    function renderStatus(id, points, datasetLabel, minStr, maxStr) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderStatus for', id);
@@ -92,31 +82,10 @@ window.timelineCharts = (function () {
             }
             var existing = window.charts[id] || Chart.getChart(el);
             if (existing) {
-                if (!document.body.contains(existing.canvas)) {
-                    existing.destroy();
-                    existing = null;
-                } else {
-                    const values = points.map(p => p && p.y !== undefined ? p.y : 0);
-                    const pointBg = values.map(s => {
-                        if (s >= 500) return 'red';
-                        if (s >= 400) return 'orange';
-                        if (s >= 200) return 'seagreen';
-                        if (s === 0) return 'gray';
-                        return 'steelblue';
-                    });
-                    existing.data.datasets[0].data = points;
-                    existing.data.datasets[0].pointBackgroundColor = pointBg;
-                    existing.update();
-                    el.style.display = 'block';
-                    return;
-                }
+                existing.destroy();
+                delete window.charts[id];
             }
             el.style.display = 'block';
-            const ctx = el.getContext && el.getContext('2d');
-            if (!ctx) {
-                console.warn('Unable to get 2d context for', id);
-                return;
-            }
             // points: array of { x: ISO8601 timestamp, y: numeric status }
             const values = points.map(p => p && p.y !== undefined ? p.y : 0);
             const pointBg = values.map(s => {
@@ -131,7 +100,7 @@ window.timelineCharts = (function () {
                 console.log('[timelineCharts] renderStatus points sample:', points.slice(0, 8));
             } catch (e) { }
 
-            window.charts[id] = new Chart(ctx, {
+            window.charts[id] = new Chart(el, {
                 type: 'line',
                 data: {
                     datasets: [{
@@ -154,6 +123,8 @@ window.timelineCharts = (function () {
                     scales: {
                         x: {
                             type: 'time',
+                            min: minStr,
+                            max: maxStr,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
@@ -172,7 +143,7 @@ window.timelineCharts = (function () {
         } catch (e) { console.error(e); }
     }
 
-    function renderAttempts(id, initialPoints, retryPoints) {
+    function renderAttempts(id, initialPoints, retryPoints, minStr, maxStr) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderAttempts for', id);
@@ -185,21 +156,11 @@ window.timelineCharts = (function () {
             }
             var existing = window.charts[id] || Chart.getChart(el);
             if (existing) {
-                if (!document.body.contains(existing.canvas)) {
-                    existing.destroy();
-                    existing = null;
-                } else {
-                    existing.data.datasets[0].data = initialPoints;
-                    existing.data.datasets[1].data = retryPoints;
-                    existing.update();
-                    el.style.display = 'block';
-                    return;
-                }
+                existing.destroy();
+                delete window.charts[id];
             }
             el.style.display = 'block';
-            const ctx = el.getContext && el.getContext('2d');
-            if (!ctx) { console.warn('Unable to get 2d context for', id); return; }
-            window.charts[id] = new Chart(ctx, {
+            window.charts[id] = new Chart(el, {
                 type: 'line',
                 data: {
                     datasets: [
@@ -226,7 +187,13 @@ window.timelineCharts = (function () {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } } }, y: { title: { display: true, text: 'Attempts' } } },
+                    scales: {                         x: {
+                            type: 'time',
+                            min: minStr,
+                            max: maxStr,
+                            time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
+                        },
+                        y: { title: { display: true, text: 'Attempts' } } },
                     plugins: { tooltip: { callbacks: { label: function(ctx){ var v = ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw); return ctx.dataset.label + ': ' + v; } } } }
                 }
             });
@@ -234,7 +201,7 @@ window.timelineCharts = (function () {
     }
 
     return {
-        renderCircuit: renderLine,
+        renderCircuit: function(id, data, minStr, maxStr) { renderLine(id, data, null, minStr, maxStr); },
         renderStatus: renderStatus,
         renderAttempts: renderAttempts
     };
