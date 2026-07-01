@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsumerApi", "ConsumerApi\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProducerApi", "ProducerApi\ProducerApi.csproj", "{0B6D72F9-6DD8-4A00-A58C-2DDA61639B9C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dashboard", "Dashboard\Dashboard.csproj", "{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigApi", "ConfigApi\ConfigApi.csproj", "{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagementDashboard", "ManagementDashboard\ManagementDashboard.csproj", "{9BEF3A01-37FA-471D-8DA7-DB9D96965D3C}"
@@ -41,8 +39,6 @@ Global
 		{0B6D72F9-6DD8-4A00-A58C-2DDA61639B9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B6D72F9-6DD8-4A00-A58C-2DDA61639B9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B6D72F9-6DD8-4A00-A58C-2DDA61639B9C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64F43D24-227F-4A4C-8FD9-4B4EAE5A0EE6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{22C239DF-BDA2-4E9E-85A0-AC5765D68C7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU

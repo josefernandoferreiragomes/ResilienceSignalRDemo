@@ -1,8 +1,10 @@
-# PollyDemo
+# ResilienceSignalRDemo
+
+> **Naming note:** This repository was originally named `PollyDemo` during early development. The codebase migrated from standalone Polly to `Microsoft.Extensions.Http.Resilience`, and some project names (e.g. `PolyDemoAppHost`) still reflect the old naming.
 
 ## Objectives
 
-- Demonstrate retry and circuit-breaker patterns in .NET 8 using Polly.
+- Demonstrate retry and circuit-breaker patterns in .NET 10 using `Microsoft.Extensions.Http.Resilience`.
 - Provide a minimal Producer API that randomly fails.
 - Provide a Consumer API that applies resilience policies via `HttpClientFactory`.
 - Offer a Blazor Server management dashboard to view metrics and adjust resilience settings at runtime.
@@ -21,7 +23,7 @@
 
 3. `ConsumerApi`  
    - Purpose: demonstrates resilient consumption of `ProducerApi`.  
-   - Features: minimal API with `GET /consume` that calls `ProducerApi` using an `HttpClient` pipeline configured with Polly retry + circuit-breaker strategies; exposes runtime JSON metrics via `GET /metrics` and current resilience configuration via `GET /config` / `PUT /config`; Prometheus metrics available at `/prometheus`.
+   - Features: minimal API with `GET /consume` that calls `ProducerApi` using an `HttpClient` pipeline configured with `Microsoft.Extensions.Http.Resilience` retry + circuit-breaker strategies; exposes runtime JSON metrics via `GET /metrics` and current resilience configuration via `GET /config` / `PUT /config`; Prometheus metrics available at `/prometheus`.
 
 4. `ManagementDashboard` (Blazor Server)  
    - Purpose: real-time UI for monitoring and managing the demo.  
@@ -39,7 +41,8 @@
 
 ## Prerequisites
 
-- .NET 8 SDK installed
+- .NET 10 SDK installed
+- .NET Aspire workload (required for the AppHost project; install via `dotnet workload install aspire`)
 - Docker (for Prometheus + Grafana)
 - (Optional) Visual Studio 2022+ or VS Code
 
@@ -81,7 +84,7 @@ Prometheus scrapes the metrics endpoints exposed by the services. ProducerApi an
 
 ## Quick testing and examples
 
-- Call `ConsumerApi` directly (this exercises the Polly policies):
+- Call `ConsumerApi` directly (this exercises the resilience policies):
 
 ```bash
 curl http://localhost:5001/consume
@@ -120,7 +123,7 @@ Dashboard actions you can perform:
 ---
 
 ## What You’ve Learned
-- How to wire up Polly Retry and Circuit Breaker in an HttpClientFactory pipeline.
+- How to wire up retry and circuit-breaker policies via `Microsoft.Extensions.Http.Resilience` in an `HttpClientFactory` pipeline.
 - Capturing retry/fail metrics in a singleton store.
 - Dynamically updating resilience policies at runtime via a dashboard.
 - Blazor Server as a quick UI for operational insights.
@@ -129,7 +132,7 @@ Dashboard actions you can perform:
 
 ## Notes and next steps
 
-- Use the dashboard to experiment with retry counts, backoff and circuit breaker thresholds to see how Polly reacts to transient failures.
+- Use the dashboard to experiment with retry counts, backoff and circuit breaker thresholds to see how the resilience pipeline reacts to transient failures.
 - To collect traces/metrics centrally you can configure OpenTelemetry exporters; `AspireStarterApp.ServiceDefaults` contains helpers to enable OTLP exporters using the `OTEL_EXPORTER_OTLP_ENDPOINT` configuration.
 - Add unit and integration tests to simulate failures and assert expected retry/circuit behaviors.
 - Optionally dockerize the whole stack and use `docker-compose` to run every component (services + observability).
