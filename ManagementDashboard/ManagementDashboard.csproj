@@ -10,6 +10,7 @@
    <PackageReference Include="Aspire.Hosting" Version="9.5.0" />
    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
    <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="8.0.0" />
+   <!-- ChartJs.Blazor removed; using Chart.js via CDN and a small JS helper -->
   </ItemGroup>
 
   <ItemGroup>

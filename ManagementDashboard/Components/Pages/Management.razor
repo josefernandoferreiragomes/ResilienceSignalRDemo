@@ -1,10 +1,12 @@
 ﻿@page "/management"
 @using ManagementDashboard.Models
+@using System.Globalization
 @using Microsoft.AspNetCore.SignalR.Client
 @inject IHttpClientFactory ClientFactory
 @inject IConfiguration config
 @implements IAsyncDisposable
 @rendermode InteractiveServer
+@inject IJSRuntime JS
 
 <PageTitle>Polly and SignalR Demo</PageTitle>
 
@@ -37,7 +39,7 @@
             <InputNumber @bind-Value="errorChanceModel.ErrorChance" />
         </div>
         <div class="col-6">
-            <button btn class="btn btn-primary m-1" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
+            <button class="btn btn-primary m-1" @onclick="SendErrorChanceUpdate">Update Error Chance</button>
         </div>
     </div>
 </section>
@@ -53,6 +55,11 @@
         </div>
     </div>
 </section>
+<div class="row">
+    <div class="col-12 mb-2">
+        <button class="btn btn-primary" style="background:#0d6efd;color:#fff;padding:.375rem .75rem;border-radius:.25rem" @onclick="RefreshTimeline">Refresh Timeline</button>
+    </div>
+</div>
 <hr />
 <section>
     <h5>Polly Dashboard</h5>
@@ -131,11 +138,11 @@
         <div class="col-6">
             <InputRadioGroup @bind-Value="isParallel">
                 <div class="form-check form-check-inline">
-                    <InputRadio class="form-check-input" Value="true" /> 
+                    <InputRadio class="form-check-input" Value="true" />
                     <label class="form-check-label">Parallel</label>
                 </div>
                 <div class="form-check form-check-inline ms-4">
-                    <InputRadio class="form-check-input" Value="false" /> 
+                    <InputRadio class="form-check-input" Value="false" />
                     <label class="form-check-label">Sequential</label>
                 </div>
             </InputRadioGroup>
@@ -152,7 +159,38 @@
     </div>
 </section>
 
+<!-- Timeline Charts Section (placed at the bottom of the management page) -->
+<hr />
+<section>
+    <h5>Timeline Charts</h5>
+    <p class="text-muted">Manual refresh with the "Refresh Timeline" button above. Shows last 30 minutes by default.</p>
+    <div class="row">
+        <div class="col-12">
+            <h6>Circuit Breaker State</h6>
+            <div style="position:relative; width:100%; height:180px;">
+                <canvas id="circuitChart" aria-label="Circuit breaker timeline"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <h6>Producer Responses (status codes)</h6>
+            <div style="position:relative; width:100%; height:180px;">
+                <canvas id="producerChart" aria-label="Producer responses timeline"></canvas>
+            </div>
+        </div>
+        <div class="col-12">
+            <h6>Consumer Attempts & Retries</h6>
+            <div style="position:relative; width:100%; height:180px;">
+                <canvas id="consumerChart" aria-label="Consumer attempts timeline"></canvas>
+            </div>
+        </div>
+    </div>
+</section>
+
 @code {
+    const double svgWidth = 900.0;
+    const double svgHeight = 120.0;
     private HubConnection? hubConnection;
 
     private HttpClient ConsumerApiClient => ClientFactory.CreateClient("ConsumerApi");
@@ -176,6 +214,151 @@
     private string requestStatus = "Ready to send requests";
 
     private string producerHubConnection = "Not started";
+
+    // Timeline data
+    private DateTime timelineFrom = DateTime.UtcNow.AddMinutes(-30);
+    private DateTime timelineTo = DateTime.UtcNow;
+    private List<TimelineEventModel>? consumerEvents;
+    private List<TimelineEventModel>? producerEvents;
+    private List<(DateTime TimestampUtc, double Value)>? circuitPoints;
+
+    private async Task RefreshTimeline()
+    {
+        try
+        {
+            var events = await ConsumerApiClient.GetFromJsonAsync<List<TimelineEventModel>>($"timeline?minutes=60");
+            if (events is null)
+            {
+                consumerEvents = new();
+                producerEvents = new();
+                circuitPoints = new();
+                return;
+            }
+            // Debug: log raw timeline event count and a short sample for troubleshooting
+            try
+            {
+                Console.WriteLine($"[Management] Raw timeline events: {events.Count}");
+                foreach (var ev in events.Take(10))
+                {
+                    Console.WriteLine($"[Management] Event: Kind={ev.Kind}, Timestamp={ev.TimestampUtc:O}, StatusCode={(ev.StatusCode.HasValue ? ev.StatusCode.Value.ToString() : "null")}, Detail={ev.Detail}");
+                }
+            }
+            catch { }
+            timelineTo = DateTime.UtcNow;
+            var earliestEvent = events.MinBy(e => e.TimestampUtc);
+            timelineFrom = earliestEvent is not null
+                ? earliestEvent.TimestampUtc.AddMinutes(-1)
+                : timelineTo.AddMinutes(-30);
+
+            consumerEvents = events.Where(e => (e.Kind == "ConsumerRequest" || e.Kind == "ConsumerRetry") && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
+            // Include producer-related events: any with a StatusCode, plus CircuitState events that report an Internal Server Error in Detail
+            producerEvents = events
+                .Where(e => e.TimestampUtc >= timelineFrom && (
+                    e.StatusCode.HasValue ||
+                    (!string.IsNullOrEmpty(e.Kind) && e.Kind == "CircuitState" && !string.IsNullOrEmpty(e.Detail) && e.Detail.IndexOf("Internal Server Error", StringComparison.OrdinalIgnoreCase) >= 0)
+                ))
+                .OrderBy(e => e.TimestampUtc)
+                .ToList();
+            var circuit = events.Where(e => e.Kind == "CircuitState" && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
+            // Build stepped points for circuit state so the chart shows a step function across the window
+            var points = new List<(DateTime TimestampUtc, double Value)>();
+            double currentState = 0.0; // assume Closed
+            if (circuit.Any())
+            {
+                // start with state at window start (use first event's previous state if available)
+                // we do not know previous state, so use the first event's state as starting value
+                var first = circuit.First();
+                currentState = first.State == "Open" ? 1.0 : first.State == "HalfOpen" ? 0.5 : 0.0;
+                points.Add((timelineFrom, currentState));
+                foreach (var e in circuit)
+                {
+                    var newState = e.State == "Open" ? 1.0 : e.State == "HalfOpen" ? 0.5 : 0.0;
+                    // add a point at event time with previous state to end the previous step
+                    points.Add((e.TimestampUtc, currentState));
+                    // add a point at same time with new state to start the new step
+                    points.Add((e.TimestampUtc, newState));
+                    currentState = newState;
+                }
+                // close the last step to timeline end
+                points.Add((timelineTo, currentState));
+            }
+            else
+            {
+                // no events: show flat line using last known metrics state if available
+                var s = metricsModel?.CircuitState ?? "Closed";
+                currentState = s == "Open" ? 1.0 : s == "HalfOpen" ? 0.5 : 0.0;
+                points.Add((timelineFrom, currentState));
+                points.Add((timelineTo, currentState));
+            }
+            circuitPoints = points;
+
+            StateHasChanged();
+
+            // Convert circuit points to numeric timestamps (ms) for JS
+            var circuitPointsJs = circuitPoints.Select(p => new { x = new DateTimeOffset(p.TimestampUtc).ToUnixTimeMilliseconds(), y = p.Value }).ToArray();
+
+            // Compute aggregation buckets to avoid excessive points. Target up to maxBuckets buckets over the window.
+            var windowSeconds = Math.Max(1, (int)(timelineTo - timelineFrom).TotalSeconds);
+            const int maxBuckets = 300; // adjustable
+            var bucketSizeSeconds = Math.Max(1, (int)Math.Ceiling(windowSeconds / (double)maxBuckets));
+            var buckets = new List<DateTime>();
+            for (var t = timelineFrom; t <= timelineTo; t = t.AddSeconds(bucketSizeSeconds))
+            {
+                buckets.Add(t);
+            }
+
+            // Aggregate producer events: pick the highest status code in each bucket (map null to 500)
+            var producerPointsJs = new List<object>();
+            if (producerEvents is not null)
+            {
+                foreach (var b in buckets)
+                {
+                    var end = b.AddSeconds(bucketSizeSeconds);
+                    var inBucket = producerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
+                    var aggregated = inBucket.Any() ? inBucket.Max(e => (double)(e.StatusCode ?? 500)) : 0.0;
+                    producerPointsJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = aggregated });
+                }
+            }
+
+            // Aggregate consumer events: count initial attempts and retries per bucket
+            var consumerInitialJs = new List<object>();
+            var consumerRetryJs = new List<object>();
+            if (consumerEvents is not null)
+            {
+                foreach (var b in buckets)
+                {
+                    var end = b.AddSeconds(bucketSizeSeconds);
+                    var inBucket = consumerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
+                    var initialCount = inBucket.Count(e => e.Kind != "ConsumerRetry");
+                    var retryCount = inBucket.Count(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
+                                                         || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)));
+                    consumerInitialJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = (double)initialCount });
+                    consumerRetryJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = (double)retryCount });
+                }
+            }
+
+            await Task.Yield();
+            // Render charts using time-based points so Chart.js can align them exactly
+            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs);
+
+            if (producerPointsJs.Any())
+            {
+                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status");
+            }
+
+            if (consumerInitialJs.Any())
+            {
+                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", consumerInitialJs, consumerRetryJs);
+            }
+
+            // Debug: print event counts and buckets for quick verification
+            Console.WriteLine($"[Management] Timeline counts: consumer={consumerEvents?.Count ?? 0}, producer={producerEvents?.Count ?? 0}, circuitPoints={circuitPoints?.Count ?? 0}, buckets={buckets.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing timeline: {ex.Message}");
+        }
+    }
 
     private async Task StartProducer()
     {
@@ -201,6 +384,16 @@
     {
         await StartHubConnectionAsync();
         await LoadPollyConfiguration();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // DOM is ready; refresh timeline now so canvases exist
+            await RefreshTimeline();
+        }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     private async Task StartHubConnectionAsync()

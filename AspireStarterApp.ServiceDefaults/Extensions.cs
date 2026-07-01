@@ -28,7 +28,7 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            // Turn on resilience by default
+            // resilience by default, disabled for demo purposes - see https://aka.ms/dotnet/aspire/resilience for more details
             http.AddStandardResilienceHandler();
 
             // Turn on service discovery by default

@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using ManagementDashboard.Helpers
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -8,13 +9,22 @@
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="ManagementDashboard.styles.css" />
+    <!-- Use local bootstrap already present under wwwroot/bootstrap to avoid CDN tracking/prevention issues -->
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
 </head>
 
 <body>
     <Routes />
-    <script src="_framework/blazor.web.js"></script>
+    <script src="_framework/blazor.web.js" defer></script>
+    <script src="lib/chartjs/chart.umd.min.js" defer></script>
+    <script src="lib/chartjs/chartjs-adapter-date-fns.bundle.min.js" defer></script>
+    <script>console.log('App scripts loaded - Chart available:', typeof Chart !== 'undefined');</script>
+
+<script src="timelineCharts.js?v=@JsVersionHelper.Version" defer></script>
+
 </body>
 
 </html>
