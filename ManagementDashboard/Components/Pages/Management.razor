@@ -294,8 +294,8 @@
             // Convert circuit points to time-series points (ISO 8601) for JS
             var circuitPointsJs = circuitPoints.Select(p => new { x = p.TimestampUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = p.Value }).ToArray();
 
-            var fromStr = timelineFrom.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
-            var toStr = timelineTo.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            var fromTs = new DateTimeOffset(timelineFrom).ToUnixTimeMilliseconds();
+            var toTs = new DateTimeOffset(timelineTo).ToUnixTimeMilliseconds();
 
             // Compute aggregation buckets to avoid excessive points. Target up to maxBuckets buckets over the window.
             var windowSeconds = Math.Max(1, (int)(timelineTo - timelineFrom).TotalSeconds);
@@ -339,16 +339,16 @@
 
             await Task.Yield();
             // Render charts using time-based points so Chart.js can align them exactly
-            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs, fromStr, toStr);
+            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs, fromTs, toTs);
 
             if (producerPointsJs.Any())
             {
-                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status", fromStr, toStr);
+                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status", fromTs, toTs);
             }
 
             if (consumerInitialJs.Any())
             {
-                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", consumerInitialJs, consumerRetryJs, fromStr, toStr);
+                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", consumerInitialJs, consumerRetryJs, fromTs, toTs);
             }
 
             // Debug: print event counts and buckets for quick verification

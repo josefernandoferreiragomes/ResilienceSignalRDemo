@@ -1,7 +1,7 @@
 window.timelineCharts = (function () {
     window.charts = window.charts || {};
 
-    function renderLine(id, data, yCallback, minStr, maxStr) {
+    function renderLine(id, data, yCallback, minTs, maxTs) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderLine for', id);
@@ -40,8 +40,8 @@ window.timelineCharts = (function () {
                     scales: {
                         x: {
                             type: 'time',
-                            min: minStr,
-                            max: maxStr,
+                            min: minTs,
+                            max: maxTs,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
@@ -69,7 +69,7 @@ window.timelineCharts = (function () {
         }
     }
 
-    function renderStatus(id, points, datasetLabel, minStr, maxStr) {
+    function renderStatus(id, points, datasetLabel, minTs, maxTs) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderStatus for', id);
@@ -123,8 +123,8 @@ window.timelineCharts = (function () {
                     scales: {
                         x: {
                             type: 'time',
-                            min: minStr,
-                            max: maxStr,
+                            min: minTs,
+                            max: maxTs,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
@@ -143,7 +143,7 @@ window.timelineCharts = (function () {
         } catch (e) { console.error(e); }
     }
 
-    function renderAttempts(id, initialPoints, retryPoints, minStr, maxStr) {
+    function renderAttempts(id, initialPoints, retryPoints, minTs, maxTs) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderAttempts for', id);
@@ -189,8 +189,8 @@ window.timelineCharts = (function () {
                     maintainAspectRatio: false,
                     scales: {                         x: {
                             type: 'time',
-                            min: minStr,
-                            max: maxStr,
+                            min: minTs,
+                            max: maxTs,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: { title: { display: true, text: 'Attempts' } } },
@@ -201,7 +201,7 @@ window.timelineCharts = (function () {
     }
 
     return {
-        renderCircuit: function(id, data, minStr, maxStr) { renderLine(id, data, null, minStr, maxStr); },
+        renderCircuit: function(id, data, minTs, maxTs) { renderLine(id, data, null, minTs, maxTs); },
         renderStatus: renderStatus,
         renderAttempts: renderAttempts
     };
