@@ -226,7 +226,7 @@
     {
         try
         {
-            var events = await ConsumerApiClient.GetFromJsonAsync<List<TimelineEventModel>>($"timeline?minutes=30");
+            var events = await ConsumerApiClient.GetFromJsonAsync<List<TimelineEventModel>>($"timeline?minutes=60");
             if (events is null)
             {
                 consumerEvents = new();
@@ -245,9 +245,12 @@
             }
             catch { }
             timelineTo = DateTime.UtcNow;
-            timelineFrom = timelineTo.AddMinutes(-30);
+            var earliestEvent = events.MinBy(e => e.TimestampUtc);
+            timelineFrom = earliestEvent is not null
+                ? earliestEvent.TimestampUtc.AddMinutes(-1)
+                : timelineTo.AddMinutes(-30);
 
-            consumerEvents = events.Where(e => e.Kind == "ConsumerRequest" && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
+            consumerEvents = events.Where(e => (e.Kind == "ConsumerRequest" || e.Kind == "ConsumerRetry") && e.TimestampUtc >= timelineFrom).OrderBy(e => e.TimestampUtc).ToList();
             // Include producer-related events: any with a StatusCode, plus CircuitState events that report an Internal Server Error in Detail
             producerEvents = events
                 .Where(e => e.TimestampUtc >= timelineFrom && (
@@ -326,7 +329,7 @@
                 {
                     var end = b.AddSeconds(bucketSizeSeconds);
                     var inBucket = consumerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
-                    var initialCount = inBucket.Count;
+                    var initialCount = inBucket.Count(e => e.Kind != "ConsumerRetry");
                     var retryCount = inBucket.Count(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
                                                          || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)));
                     consumerInitialJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = (double)initialCount });
