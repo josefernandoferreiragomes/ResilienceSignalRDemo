@@ -291,11 +291,8 @@
 
             StateHasChanged();
 
-            // Convert circuit points to time-series points (ISO 8601) for JS
-            var circuitPointsJs = circuitPoints.Select(p => new { x = p.TimestampUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = p.Value }).ToArray();
-
-            var fromTs = new DateTimeOffset(timelineFrom).ToUnixTimeMilliseconds();
-            var toTs = new DateTimeOffset(timelineTo).ToUnixTimeMilliseconds();
+            // Convert circuit points to numeric timestamps (ms) for JS
+            var circuitPointsJs = circuitPoints.Select(p => new { x = new DateTimeOffset(p.TimestampUtc).ToUnixTimeMilliseconds(), y = p.Value }).ToArray();
 
             // Compute aggregation buckets to avoid excessive points. Target up to maxBuckets buckets over the window.
             var windowSeconds = Math.Max(1, (int)(timelineTo - timelineFrom).TotalSeconds);
@@ -316,7 +313,7 @@
                     var end = b.AddSeconds(bucketSizeSeconds);
                     var inBucket = producerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
                     var aggregated = inBucket.Any() ? inBucket.Max(e => (double)(e.StatusCode ?? 500)) : 0.0;
-                    producerPointsJs.Add(new { x = b.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = aggregated });
+                    producerPointsJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = aggregated });
                 }
             }
 
@@ -332,23 +329,23 @@
                     var initialCount = inBucket.Count;
                     var retryCount = inBucket.Count(e => ((!string.IsNullOrEmpty(e.Detail) && e.Detail!.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)
                                                          || (!string.IsNullOrEmpty(e.Kind) && e.Kind.IndexOf("retry", StringComparison.OrdinalIgnoreCase) >= 0)));
-                    consumerInitialJs.Add(new { x = b.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = (double)initialCount });
-                    consumerRetryJs.Add(new { x = b.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), y = (double)retryCount });
+                    consumerInitialJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = (double)initialCount });
+                    consumerRetryJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = (double)retryCount });
                 }
             }
 
             await Task.Yield();
             // Render charts using time-based points so Chart.js can align them exactly
-            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs, fromTs, toTs);
+            await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs);
 
             if (producerPointsJs.Any())
             {
-                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status", fromTs, toTs);
+                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status");
             }
 
             if (consumerInitialJs.Any())
             {
-                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", consumerInitialJs, consumerRetryJs, fromTs, toTs);
+                await JS.InvokeVoidAsync("timelineCharts.renderAttempts", "consumerChart", consumerInitialJs, consumerRetryJs);
             }
 
             // Debug: print event counts and buckets for quick verification

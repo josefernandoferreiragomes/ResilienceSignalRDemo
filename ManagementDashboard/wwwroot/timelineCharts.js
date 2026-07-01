@@ -1,7 +1,7 @@
 window.timelineCharts = (function () {
     window.charts = window.charts || {};
 
-    function renderLine(id, data, yCallback, minTs, maxTs) {
+    function renderLine(id, data, yCallback) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderLine for', id);
@@ -40,8 +40,6 @@ window.timelineCharts = (function () {
                     scales: {
                         x: {
                             type: 'time',
-                            min: minTs,
-                            max: maxTs,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
@@ -69,7 +67,7 @@ window.timelineCharts = (function () {
         }
     }
 
-    function renderStatus(id, points, datasetLabel, minTs, maxTs) {
+    function renderStatus(id, points, datasetLabel) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderStatus for', id);
@@ -123,8 +121,6 @@ window.timelineCharts = (function () {
                     scales: {
                         x: {
                             type: 'time',
-                            min: minTs,
-                            max: maxTs,
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
@@ -143,7 +139,7 @@ window.timelineCharts = (function () {
         } catch (e) { console.error(e); }
     }
 
-    function renderAttempts(id, initialPoints, retryPoints, minTs, maxTs) {
+    function renderAttempts(id, initialPoints, retryPoints) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderAttempts for', id);
@@ -187,13 +183,7 @@ window.timelineCharts = (function () {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {                         x: {
-                            type: 'time',
-                            min: minTs,
-                            max: maxTs,
-                            time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
-                        },
-                        y: { title: { display: true, text: 'Attempts' } } },
+                    scales: { x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } } }, y: { title: { display: true, text: 'Attempts' } } },
                     plugins: { tooltip: { callbacks: { label: function(ctx){ var v = ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw); return ctx.dataset.label + ': ' + v; } } } }
                 }
             });
@@ -201,7 +191,7 @@ window.timelineCharts = (function () {
     }
 
     return {
-        renderCircuit: function(id, data, minTs, maxTs) { renderLine(id, data, null, minTs, maxTs); },
+        renderCircuit: renderLine,
         renderStatus: renderStatus,
         renderAttempts: renderAttempts
     };
