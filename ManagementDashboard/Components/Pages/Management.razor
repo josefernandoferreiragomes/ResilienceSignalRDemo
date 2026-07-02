@@ -265,11 +265,8 @@
             double currentState = 0.0; // assume Closed
             if (circuit.Any())
             {
-                // start with state at window start (use first event's previous state if available)
-                // we do not know previous state, so use the first event's state as starting value
-                var first = circuit.First();
-                currentState = first.State == "Open" ? 1.0 : first.State == "HalfOpen" ? 0.5 : 0.0;
-                points.Add((timelineFrom, currentState));
+                // circuit starts Closed; first event is a transition AT its timestamp
+                points.Add((timelineFrom, 0.0));
                 foreach (var e in circuit)
                 {
                     var newState = e.State == "Open" ? 1.0 : e.State == "HalfOpen" ? 0.5 : 0.0;
