@@ -304,16 +304,47 @@
                 buckets.Add(t);
             }
 
-            // Aggregate producer events: pick the highest status code in each bucket (map null to 500)
-            var producerPointsJs = new List<object>();
-            if (producerEvents is not null)
+            // Aggregate producer events by status code: filter to common status codes (200, 404, 500, 503)
+            var whitelistedStatusCodes = new[] { 200, 404, 500, 503 };
+            var statusCodeLabels = new Dictionary<int, string>
             {
-                foreach (var b in buckets)
+                { 200, "200 OK" },
+                { 404, "404 Not Found" },
+                { 500, "500 Internal Error" },
+                { 503, "503 Service Unavailable" }
+            };
+
+            var producerDatasetsList = new List<object>();
+            if (producerEvents is not null && producerEvents.Any())
+            {
+                // First, identify which status codes actually appear in the data
+                var statusCodesInData = producerEvents
+                    .Select(e => e.StatusCode ?? 500)
+                    .Distinct()
+                    .Where(sc => whitelistedStatusCodes.Contains((int)sc))
+                    .OrderBy(sc => sc)
+                    .ToList();
+
+                // For each status code found in data, create a dataset
+                foreach (var statusCode in statusCodesInData)
                 {
-                    var end = b.AddSeconds(bucketSizeSeconds);
-                    var inBucket = producerEvents.Where(e => e.TimestampUtc >= b && e.TimestampUtc < end).ToList();
-                    var aggregated = inBucket.Any() ? inBucket.Max(e => (double)(e.StatusCode ?? 500)) : 0.0;
-                    producerPointsJs.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = aggregated });
+                    var dataPoints = new List<object>();
+                    foreach (var b in buckets)
+                    {
+                        var end = b.AddSeconds(bucketSizeSeconds);
+                        var inBucket = producerEvents
+                            .Where(e => e.TimestampUtc >= b && e.TimestampUtc < end && (e.StatusCode ?? 500) == statusCode)
+                            .ToList();
+                        var count = (double)inBucket.Count;
+                        dataPoints.Add(new { x = new DateTimeOffset(b).ToUnixTimeMilliseconds(), y = count });
+                    }
+                    var label = statusCodeLabels.ContainsKey((int)statusCode) ? statusCodeLabels[(int)statusCode] : $"Status {statusCode}";
+                    producerDatasetsList.Add(new
+                    {
+                        label = label,
+                        statusCode = (int)statusCode,
+                        data = dataPoints
+                    });
                 }
             }
 
@@ -338,9 +369,9 @@
             // Render charts using time-based points so Chart.js can align them exactly
             await JS.InvokeVoidAsync("timelineCharts.renderCircuit", "circuitChart", circuitPointsJs);
 
-            if (producerPointsJs.Any())
+            if (producerDatasetsList.Any())
             {
-                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerPointsJs, "Producer Status");
+                await JS.InvokeVoidAsync("timelineCharts.renderStatus", "producerChart", producerDatasetsList);
             }
 
             if (consumerInitialJs.Any())

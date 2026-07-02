@@ -67,7 +67,7 @@ window.timelineCharts = (function () {
         }
     }
 
-    function renderStatus(id, points, datasetLabel) {
+    function renderStatus(id, datasets) {
         try {
             if (typeof Chart === 'undefined') {
                 console.warn('Chart.js not available; skipping renderStatus for', id);
@@ -84,36 +84,47 @@ window.timelineCharts = (function () {
                 delete window.charts[id];
             }
             el.style.display = 'block';
-            // points: array of { x: ISO8601 timestamp, y: numeric status }
-            const values = points.map(p => p && p.y !== undefined ? p.y : 0);
-            const pointBg = values.map(s => {
-                if (s >= 500) return 'red';
-                if (s >= 400) return 'orange';
-                if (s >= 200) return 'seagreen';
-                if (s === 0) return 'gray';
-                return 'steelblue';
-            });
+
+            // Color mapping for HTTP status codes
+            var statusColorMap = {
+                200: 'seagreen',
+                404: 'darkorange',
+                500: 'crimson',
+                503: 'orangered'
+            };
+
+            // Ensure datasets is an array of dataset objects with label, data, and optional color
+            // Each dataset: { label: "200 OK", data: [...], color: "seagreen" }
+            var chartDatasets = [];
+            if (Array.isArray(datasets)) {
+                chartDatasets = datasets.map(function (ds) {
+                    var color = ds.color || statusColorMap[ds.statusCode] || 'steelblue';
+                    return {
+                        label: ds.label,
+                        data: ds.data,
+                        borderColor: color,
+                        backgroundColor: color.replace(/[^,]+(?=\))/, '0.08'),
+                        pointRadius: 4,
+                        showLine: true,
+                        fill: false,
+                        tension: 0.0,
+                        parsing: false,
+                        borderWidth: 2
+                    };
+                });
+            }
 
             try {
-                console.log('[timelineCharts] renderStatus points sample:', points.slice(0, 8));
+                console.log('[timelineCharts] renderStatus datasets count:', chartDatasets.length);
+                chartDatasets.forEach(function (ds, idx) {
+                    console.log('[timelineCharts] Dataset ' + idx + ':', ds.label, '- points:', ds.data.length);
+                });
             } catch (e) { }
 
             window.charts[id] = new Chart(el, {
                 type: 'line',
                 data: {
-                    datasets: [{
-                        label: datasetLabel || 'Status',
-                        data: points,
-                        pointBackgroundColor: pointBg,
-                        backgroundColor: 'rgba(70,130,180,0.08)',
-                        borderColor: 'steelblue',
-                        borderWidth: 1,
-                        pointRadius: 4,
-                        showLine: true,
-                        fill: false,
-                        tension: 0.0,
-                        parsing: false
-                    }]
+                    datasets: chartDatasets
                 },
                 options: {
                     responsive: true,
@@ -124,13 +135,20 @@ window.timelineCharts = (function () {
                             time: { tooltipFormat: 'HH:mm:ss.SSS', displayFormats: { second: 'HH:mm:ss' } }
                         },
                         y: {
-                            title: { display: true, text: 'HTTP Status' }
+                            title: { display: true, text: 'Request Count' }
                         }
                     },
                     plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
                         tooltip: {
                             callbacks: {
-                                label: function (ctx) { var v = ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw); return 'Status: ' + v; }
+                                label: function (ctx) {
+                                    var v = ctx.parsed && ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.raw && ctx.raw.y !== undefined ? ctx.raw.y : ctx.raw);
+                                    return ctx.dataset.label + ': ' + v;
+                                }
                             }
                         }
                     }
